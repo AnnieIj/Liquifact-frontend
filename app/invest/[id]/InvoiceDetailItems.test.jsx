@@ -205,6 +205,26 @@ describe("InvoiceDetailItems — bulk select toolbar", () => {
     );
   });
 
+  it("keeps the selection and reports export failures for retry", async () => {
+    const toast = { success: jest.fn(), error: jest.fn(), info: jest.fn() };
+    render(
+      <InvoiceDetailItems
+        initialItems={SAMPLE_ITEMS}
+        toast={toast}
+        onBulkExport={() => {
+          throw new Error("download failed");
+        }}
+      />
+    );
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-export"));
+    await flushPromises();
+
+    expect(toast.error).toHaveBeenCalledWith("Could not export the selected documents. Please try again.", "Export failed");
+    expect(getCheckbox("inv-001-doc-invoice")).toBeChecked();
+    expect(screen.getByTestId("bulk-actions-toolbar")).toBeInTheDocument();
+  });
+
   it("Delete opens a confirm dialog", async () => {
     render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
     fireEvent.click(getCheckbox("inv-001-doc-invoice"));

@@ -151,7 +151,7 @@ export default function InvoiceDetailItems({
 
   const handleConfirmDelete = useCallback(async () => {
     const idsToDelete = pendingDeleteIds;
-    if (!idsToDelete || idsToDelete.size === 0) {
+    if (bulkRunning.delete || !idsToDelete || idsToDelete.size === 0) {
       setPendingDeleteIds(null);
       return;
     }
@@ -172,7 +172,7 @@ export default function InvoiceDetailItems({
     } finally {
       setBulkRunning((prev) => ({ ...prev, delete: false }));
     }
-  }, [pendingDeleteIds, onBulkDelete, toastApi]);
+  }, [pendingDeleteIds, bulkRunning.delete, onBulkDelete, toastApi]);
 
   const handleExport = useCallback(() => {
     if (selectedIds.size === 0) {
@@ -191,6 +191,10 @@ export default function InvoiceDetailItems({
           .replace("{plural}", plural),
         bulkLabels.exportSuccessTitle
       );
+    } catch {
+      // Keep the selection intact so a transient download/serialization
+      // failure can be retried without reconstructing the user's selection.
+      toastApi?.error?.(bulkLabels.exportErrorMsg, bulkLabels.exportErrorTitle);
     } finally {
       setBulkRunning((prev) => ({ ...prev, export: false }));
     }
