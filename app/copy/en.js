@@ -289,6 +289,28 @@
  * @property {string} settings.exportAnnounceCSV
  * @property {string} settings.exportAnnounceJSON
  * @property {string} settings.exportEmpty
+ * @property {Object} investDetail - Invoice detail page copy (used by InvoiceDetailItems.jsx)
+ * @property {string} investDetail.heading
+ * @property {string} investDetail.subtitle
+ * @property {string} investDetail.dtIssuer
+ * @property {string} investDetail.dtAmount
+ * @property {string} investDetail.dtYield
+ * @property {string} investDetail.dtMaturity
+ * @property {string} investDetail.dtStatus
+ * @property {string} investDetail.fundButton
+ * @property {string} investDetail.fundButtonAriaLabel
+ * @property {string} investDetail.copyLinkButton
+ * @property {string} investDetail.copyLinkAriaLabel
+ * @property {string} investDetail.printButton
+ * @property {string} investDetail.printAriaLabel
+ * @property {string} investDetail.disclaimer
+ * @property {string} investDetail.loadErrorTitle
+ * @property {string} investDetail.loadErrorDescription
+ * @property {string} investDetail.backToMarketplace
+ * @property {string} investDetail.toastCopySuccess
+ * @property {string} investDetail.toastCopySuccessTitle
+ * @property {string} investDetail.toastCopyError
+ * @property {string} investDetail.toastCopyErrorTitle
  */
 
 /** @type {CopyDictionary} */
@@ -343,7 +365,8 @@ export const copy = {
     announceInvoicesLoaded: "{count} investable invoices loaded",
     announceShowing: "Showing {shown} of {total} investable invoices",
     invalidCursorTitle: "This result set is no longer valid.",
-    invalidCursorDescription: "This result set is no longer valid. Refresh the marketplace to continue.",
+    invalidCursorDescription:
+      "This result set is no longer valid. Refresh the marketplace to continue.",
     endOfList: "You have reached the end of the list.",
     filters: {
       errorYieldMin: "Minimum yield must be a non-negative number.",
@@ -441,13 +464,11 @@ export const copy = {
         bannerBodyUnknown:
           "Your wallet network could not be read. This invoice requires {invoiceNetwork}. Reconnect your wallet to continue.",
         // Shown when no wallet is connected.
-        bannerBodyDisconnected:
-          "Connect your wallet to {invoiceNetwork} to fund this invoice.",
+        bannerBodyDisconnected: "Connect your wallet to {invoiceNetwork} to fund this invoice.",
         // aria-label for screen readers describing the alert region.
         alertLabel: "Network mismatch warning",
         // Announced to screen readers when the banner first appears.
-        announceMessage:
-          "Network mismatch: please switch your wallet to {invoiceNetwork}.",
+        announceMessage: "Network mismatch: please switch your wallet to {invoiceNetwork}.",
       },
       inlineEdit: {
         editButton: "Edit {field}",
@@ -750,5 +771,29 @@ export const copy = {
     errorDescription: "We could not load the timeline for this invoice right now.",
     retryLabel: "Retry",
     byActor: "By {actor}",
+  },
+  investDetail: {
+    heading: "Invoice details",
+    subtitle: "Review the invoice terms before funding.",
+    dtIssuer: "Issuer",
+    dtAmount: "Amount",
+    dtYield: "Estimated yield",
+    dtMaturity: "Maturity date",
+    dtStatus: "Status",
+    fundButton: "Fund this invoice",
+    fundButtonAriaLabel: "Fund this invoice",
+    copyLinkButton: "Copy link",
+    copyLinkAriaLabel: "Copy invoice link to clipboard",
+    printButton: "Print / Save PDF",
+    printAriaLabel: "Print or save this invoice as PDF",
+    disclaimer:
+      "Note: Yield references are educational only and reflect on-chain basis-point assumptions. Invoice contracts settle at maturity. Funding commits principal and is subject to wallet approval.",
+    loadErrorTitle: "Unable to load invoice details",
+    loadErrorDescription: "Unable to load invoice details right now.",
+    backToMarketplace: "\u2190 Back to marketplace",
+    toastCopySuccess: "Invoice link copied to clipboard.",
+    toastCopySuccessTitle: "Link copied",
+    toastCopyError: "Could not copy link to clipboard.",
+    toastCopyErrorTitle: "Copy failed",
   },
 };

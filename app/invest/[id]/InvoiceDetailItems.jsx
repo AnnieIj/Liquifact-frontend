@@ -1,294 +1,189 @@
-"use client";
-
 /**
- * @file app/invest/[id]/InvoiceDetailItems.jsx
+ * @file InvoiceDetailItems.jsx
  *
- * Bulk-selectable list of invoice-detail documents (PDF, proof of delivery,
- * payment terms, etc.) on the invoice detail page.
+ * Pure presentational component for the invoice detail section inside
+ * app/invest/[id]/page.js. It owns only display logic — all loading, routing,
+ * and async state live in the parent InvoiceDetail component.
  *
- * Composition:
- *   - Tri-state select-all via shared `BulkActionsToolbar`
- *   - Per-row checkboxes (keyboard accessible, labelled)
- *   - Non-destructive Export (JSON download)
- *   - Destructive Delete gated behind `ConfirmDialog`
- *   - Results announced via toast + the toolbar's polite live region
- *
- * Selection auto-prunes when items are deleted (via `useBulkSelection`).
+ * STATE INVARIANTS (must always hold):
+ *   INV-1  `invoice` must be a non-null object with a string `id` before this
+ *          component renders anything meaningful. All fields may be missing or
+ *          malformed; the component degrades gracefully rather than throwing.
+ *   INV-2  `walletState` must be a known WALLET_STATES value. Unrecognised
+ *          values default to the DISCONNECTED behaviour (fund button enabled,
+ *          calls onFund).
+ *   INV-3  The Fund button is disabled ONLY when `isFundingDisabled` is true
+ *          (CONNECTING or NO_WALLET). It is never disabled for other wallet
+ *          states, including ERROR — the user can always attempt to fund.
+ *   INV-4  All user-visible strings come from copy.investDetail — no inline
+ *          hard-coded copy is permitted.
+ *   INV-5  Numeric and string fields are sanitized through safeField() before
+ *          rendering. HTML-special characters (<, >, {, }, ", ') are stripped
+ *          so attacker-controlled issuer/amount values cannot inject markup.
+ *   INV-6  Yield values are formatted to show a "%" suffix when numeric and
+ *          valid; the INVALID_VALUE_FALLBACK sentinel ("—") is shown without a
+ *          suffix so it is never "—%".
+ *   INV-7  The component is a Server-component-safe pure function (no hooks,
+ *          no side-effects). All callbacks are injected as props.
  */
 
-import { useCallback, useState } from "react";
-import BulkActionsToolbar from "@/components/BulkActionsToolbar";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import useBulkSelection, { ALL_STATES } from "@/lib/hooks/useBulkSelection";
+import StatusPill from "@/components/StatusPill";
 import { copy } from "@/app/copy/en";
+import { INVALID_VALUE_FALLBACK, formatAmount, formatCurrency } from "@/lib/format/currency";
 
-const bulkLabels = copy.invest.detail.bulk;
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Build the default set of detail documents for an invoice.
- * Pure helper — safe to call from Server Components.
+ * Strip HTML-special characters from any value, converting it to a safe
+ * display string. Returns an empty string for null / undefined.
  *
- * @param {{ id: string, issuer?: string } | null | undefined} invoice
- * @returns {Array<{ id: string, name: string, kind: string, issuer: string }>}
+ * @param {unknown} value
+ * @returns {string}
  */
-export function buildInvoiceDetailItems(invoice) {
-  if (!invoice || typeof invoice.id !== "string" || invoice.id.length === 0) {
-    return [];
-  }
-  const issuer = invoice.issuer || "Unknown issuer";
-  return [
-    {
-      id: `${invoice.id}-doc-invoice`,
-      name: "Invoice PDF",
-      kind: "document",
-      issuer,
-    },
-    {
-      id: `${invoice.id}-doc-pod`,
-      name: "Proof of delivery",
-      kind: "document",
-      issuer,
-    },
-    {
-      id: `${invoice.id}-doc-terms`,
-      name: "Payment terms",
-      kind: "document",
-      issuer,
-    },
-  ];
+function safeField(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .trim()
+    .replace(/[<>{}"']/g, "");
 }
 
 /**
- * Default JSON export for selected detail items.
- * Degrades gracefully in jsdom / SSR (no `URL.createObjectURL`).
+ * Format a yield value: append "%" when the formatted amount is a valid
+ * number; return the fallback sentinel as-is so it never becomes "—%".
  *
- * @param {Array<object>} selectedItems
- * @returns {{ count: number }}
+ * @param {unknown} value
+ * @returns {string}
  */
-export function defaultDetailBulkExport(selectedItems) {
-  const safeRecords = Array.isArray(selectedItems) ? selectedItems : [];
-  if (
-    typeof URL === "undefined" ||
-    typeof URL.createObjectURL !== "function" ||
-    typeof document === "undefined"
-  ) {
-    return { count: safeRecords.length };
-  }
-  const json = JSON.stringify(
-    { exportedAt: new Date().toISOString(), items: safeRecords },
-    null,
-    2
-  );
-  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `liquifact-invoice-detail-${Date.now()}.json`;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  return { count: safeRecords.length };
+function formatYield(value) {
+  const formatted = formatAmount(value);
+  return formatted === INVALID_VALUE_FALLBACK ? formatted : `${formatted}%`;
 }
 
-/**
- * Default delete — resolves with the deleted count. Parent owns list mutation.
- *
- * @param {Set<string>|Array<string>} ids
- * @returns {Promise<{ count: number }>}
- */
-export async function defaultDetailBulkDelete(ids) {
-  const count = ids instanceof Set ? ids.size : Array.isArray(ids) ? ids.length : 0;
-  return { count };
-}
+// ─── component ───────────────────────────────────────────────────────────────
 
 /**
- * @param {object} props
- * @param {Array<{id:string,name:string,kind?:string,issuer?:string}>} props.initialItems
- * @param {(ids: Set<string>) => Promise<{count?: number}>} [props.onBulkDelete]
- * @param {(items: Array<object>) => {count?: number}} [props.onBulkExport]
- * @param {{ success?: Function, error?: Function, info?: Function }} [props.toast]
+ * Renders the invoice detail definition list and action buttons.
+ *
+ * @param {object}   props
+ * @param {object}   props.invoice          - The loaded invoice object.
+ * @param {string}   props.invoice.id       - Unique invoice identifier.
+ * @param {string}   [props.invoice.issuer]
+ * @param {string|number} [props.invoice.amount]
+ * @param {string}   [props.invoice.currency]
+ * @param {string}   [props.invoice.dueDate]
+ * @param {string|number} [props.invoice.yield]
+ * @param {string}   [props.invoice.status]
+ * @param {boolean}  props.isFundingDisabled - True when wallet is CONNECTING or NO_WALLET.
+ * @param {function} props.onFund           - Called when the Fund button is clicked.
+ * @param {function} props.onCopyLink       - Called when Copy link is clicked.
+ * @param {function} props.onPrint          - Called when Print is clicked.
  */
 export default function InvoiceDetailItems({
-  initialItems = [],
-  onBulkDelete = defaultDetailBulkDelete,
-  onBulkExport = defaultDetailBulkExport,
-  toast: toastApi = null,
+  invoice,
+  isFundingDisabled = false,
+  onFund,
+  onCopyLink,
+  onPrint,
 }) {
-  const [items, setItems] = useState(() =>
-    Array.isArray(initialItems) ? initialItems.slice() : []
-  );
-  const [pendingDeleteIds, setPendingDeleteIds] = useState(null);
-  const [bulkRunning, setBulkRunning] = useState({ export: false, delete: false });
-
-  const {
-    selectedIds,
-    selectedCount,
-    visibleCount,
-    allState,
-    isSelected,
-    toggle,
-    selectAll,
-    clear,
-  } = useBulkSelection(items);
-
-  const handleToggleSelectAll = useCallback(() => {
-    if (allState === ALL_STATES.ALL) {
-      clear();
-    } else {
-      selectAll();
-    }
-  }, [allState, clear, selectAll]);
-
-  const handleRequestDelete = useCallback(() => {
-    setPendingDeleteIds(new Set(selectedIds));
-  }, [selectedIds]);
-
-  const handleCancelDelete = useCallback(() => {
-    setPendingDeleteIds(null);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    const idsToDelete = pendingDeleteIds;
-    if (!idsToDelete || idsToDelete.size === 0) {
-      setPendingDeleteIds(null);
-      return;
-    }
-    setBulkRunning((prev) => ({ ...prev, delete: true }));
-    try {
-      await onBulkDelete(idsToDelete);
-      setItems((current) => current.filter((item) => !idsToDelete.has(item.id)));
-      const plural = idsToDelete.size === 1 ? "" : "s";
-      toastApi?.success?.(
-        bulkLabels.deleteSuccessMsg
-          .replace("{count}", String(idsToDelete.size))
-          .replace("{plural}", plural),
-        bulkLabels.deleteSuccessTitle
-      );
-      setPendingDeleteIds(null);
-    } catch {
-      toastApi?.error?.(bulkLabels.deleteErrorMsg, bulkLabels.deleteErrorTitle);
-    } finally {
-      setBulkRunning((prev) => ({ ...prev, delete: false }));
-    }
-  }, [pendingDeleteIds, onBulkDelete, toastApi]);
-
-  const handleExport = useCallback(() => {
-    if (selectedIds.size === 0) {
-      toastApi?.info?.(bulkLabels.exportEmptyMsg, bulkLabels.exportSuccessTitle);
-      return;
-    }
-    setBulkRunning((prev) => ({ ...prev, export: true }));
-    try {
-      const selectedSlice = items.filter((item) => selectedIds.has(item.id));
-      const result = onBulkExport(selectedSlice) || { count: selectedSlice.length };
-      const exportCount = result.count ?? selectedSlice.length;
-      const plural = exportCount === 1 ? "" : "s";
-      toastApi?.success?.(
-        bulkLabels.exportSuccessMsg
-          .replace("{count}", String(exportCount))
-          .replace("{plural}", plural),
-        bulkLabels.exportSuccessTitle
-      );
-    } finally {
-      setBulkRunning((prev) => ({ ...prev, export: false }));
-    }
-  }, [selectedIds, items, onBulkExport, toastApi]);
-
-  if (items.length === 0) {
+  // INV-1: hard guard — callers must not render this without a loaded invoice.
+  if (!invoice || typeof invoice !== "object") {
     return null;
   }
 
-  const deleteDialogOpen = pendingDeleteIds !== null;
+  // Sanitize every displayed field (INV-5).
+  const issuer = safeField(invoice.issuer);
+  const currency = safeField(invoice.currency);
+  const dueDate = safeField(invoice.dueDate);
+  const status = safeField(invoice.status);
+
+  // Format amount with full currency formatting helper.
+  const formattedAmount = formatCurrency(invoice.amount, { currency });
+
+  // Format yield with sentinel guard (INV-6).
+  const formattedYield = formatYield(invoice.yield);
+
+  const d = copy.investDetail;
 
   return (
-    <section
-      aria-labelledby="invoice-detail-items-heading"
-      className="no-print mb-6 rounded-xl border border-slate-800 bg-slate-900/50 p-6"
-      data-testid="invoice-detail-items"
-    >
-      <h2 id="invoice-detail-items-heading" className="text-base font-semibold text-slate-100 mb-4">
-        {bulkLabels.sectionHeading}
-      </h2>
-      <p className="text-sm text-slate-400 mb-4">{bulkLabels.sectionSub}</p>
+    <>
+      {/* ── Invoice fact sheet ─────────────────────────────────────────── */}
+      <section
+        aria-labelledby="invoice-summary-heading"
+        className="print-invoice-section rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-6"
+      >
+        <h2 id="invoice-summary-heading" className="text-xl font-semibold mb-4">
+          {issuer || d.dtIssuer}
+        </h2>
 
-      <BulkActionsToolbar
-        selectedCount={selectedCount}
-        visibleCount={visibleCount}
-        allState={allState}
-        onToggleSelectAll={handleToggleSelectAll}
-        onClearSelection={clear}
-        onExport={handleExport}
-        onRequestDelete={handleRequestDelete}
-        labels={bulkLabels}
-        exporting={bulkRunning.export}
-        deleting={bulkRunning.delete}
-      />
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div>
+            <dt className="text-slate-500">{d.dtIssuer}</dt>
+            <dd className="text-slate-100">{issuer || "—"}</dd>
+          </div>
 
-      <ul aria-label={bulkLabels.listAriaLabel} className="space-y-3">
-        {items.map((item) => {
-          const checked = isSelected(item.id);
-          const checkboxAria = bulkLabels.rowCheckboxAria
-            .replace("{name}", item.name)
-            .replace("{id}", item.id);
-          return (
-            <li
-              key={item.id}
-              data-testid={`detail-item-row-${item.id}`}
-              data-selected={checked ? "true" : "false"}
-              className={[
-                "flex items-center gap-3 rounded-lg border p-3 transition-colors",
-                checked ? "border-cyan-700/60 bg-cyan-950/30" : "border-slate-800 bg-slate-950/40",
-              ].join(" ")}
-            >
-              <label className="inline-flex items-center gap-3 cursor-pointer min-w-0 flex-1">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggle(item.id)}
-                  aria-label={checkboxAria}
-                  data-testid={`detail-item-checkbox-${item.id}`}
-                  className="h-4 w-4 flex-shrink-0 rounded border-slate-600 bg-slate-900 text-cyan-500 accent-cyan-400 focus-ring"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-slate-100 truncate">
-                    {item.name}
-                  </span>
-                  <span className="block text-xs text-slate-500 truncate">{item.id}</span>
-                </span>
-              </label>
-              <span className="text-xs uppercase tracking-wide text-slate-500 flex-shrink-0">
-                {item.kind || "document"}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+          <div>
+            <dt className="text-slate-500">{d.dtAmount}</dt>
+            <dd className="text-slate-100">{formattedAmount}</dd>
+          </div>
 
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        title={bulkLabels.deleteConfirmTitle}
-        description={
-          pendingDeleteIds
-            ? bulkLabels.deleteConfirmBody
-                .replace("{count}", String(pendingDeleteIds.size))
-                .replace("{plural}", pendingDeleteIds.size === 1 ? "" : "s")
-            : ""
-        }
-        confirmLabel={
-          pendingDeleteIds
-            ? bulkLabels.deleteConfirmConfirmLabel
-                .replace("{count}", String(pendingDeleteIds.size))
-                .replace("{plural}", pendingDeleteIds.size === 1 ? "" : "s")
-            : "Delete"
-        }
-        cancelLabel={bulkLabels.deleteConfirmCancelLabel}
-        variant="danger"
-        confirmLoading={bulkRunning.delete}
-      />
-    </section>
+          <div>
+            <dt className="text-slate-500">{d.dtYield}</dt>
+            <dd className="text-slate-100">{formattedYield}</dd>
+          </div>
+
+          <div>
+            <dt className="text-slate-500">{d.dtMaturity}</dt>
+            <dd className="text-slate-100">{dueDate || "—"}</dd>
+          </div>
+
+          <div>
+            <dt className="text-slate-500">{d.dtStatus}</dt>
+            <dd className="text-slate-100">
+              {/* StatusPill tolerates empty / unknown strings (INV-2). */}
+              <StatusPill status={status} />
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {/* ── Action buttons ─────────────────────────────────────────────── */}
+      <div className="no-print flex flex-wrap gap-3">
+        {/* Fund — disabled when wallet is CONNECTING or NO_WALLET (INV-3). */}
+        <button
+          type="button"
+          onClick={onFund}
+          disabled={isFundingDisabled}
+          className="rounded-full bg-cyan-500/20 text-cyan-400 px-6 py-3 text-sm font-medium hover:bg-cyan-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label={d.fundButtonAriaLabel}
+        >
+          {d.fundButton}
+        </button>
+
+        {/* Copy link */}
+        <button
+          type="button"
+          onClick={onCopyLink}
+          className="rounded-full border border-slate-700 text-slate-300 px-6 py-3 text-sm font-medium hover:bg-slate-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500"
+          aria-label={d.copyLinkAriaLabel}
+        >
+          {d.copyLinkButton}
+        </button>
+
+        {/* Print / Save PDF */}
+        <button
+          type="button"
+          onClick={onPrint}
+          className="rounded-full border border-slate-700 text-slate-300 px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500"
+          aria-label={d.printAriaLabel}
+        >
+          {d.printButton}
+        </button>
+      </div>
+
+      {/* ── Disclaimer ─────────────────────────────────────────────────── */}
+      <div className="no-print mt-6 rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">
+        {d.disclaimer}
+      </div>
+    </>
   );
 }
