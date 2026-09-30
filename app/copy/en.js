@@ -233,6 +233,7 @@
  * @property {string} globalError.heading
  * @property {string} globalError.description
  * @property {string} globalError.reloadLabel
+ * @property {string} globalError.resettingLabel
  * @property {string} globalError.homeLabel
  * @property {Object} invoiceTimeline - Invoice lifecycle timeline copy
  * @property {string} invoiceTimeline.heading
@@ -729,6 +730,7 @@ export const copy = {
     heading: "Critical error",
     description: "A layout-level error occurred. Please reload the page or return home.",
     reloadLabel: "Reload page",
+    resettingLabel: "Reloading\u2026",
     homeLabel: "\u2190 Back to LiquiFact",
   },
   invoiceTimeline: {

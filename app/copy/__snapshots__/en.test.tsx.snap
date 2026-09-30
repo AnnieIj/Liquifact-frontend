@@ -23,6 +23,7 @@ exports[`copy dictionary — snapshot of full dictionary matches the full copy d
     "heading": "Critical error",
     "homeLabel": "← Back to LiquiFact",
     "reloadLabel": "Reload page",
+    "resettingLabel": "Reloading…",
   },
   "home": {
     "apiStatus": "API status",

@@ -413,6 +413,7 @@ describe("copy dictionary — key presence", () => {
       expect(copy.globalError.heading).toBeDefined();
       expect(copy.globalError.description).toBeDefined();
       expect(copy.globalError.reloadLabel).toBeDefined();
+      expect(copy.globalError.resettingLabel).toBeDefined();
       expect(copy.globalError.homeLabel).toBeDefined();
     });
   });
