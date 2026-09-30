@@ -37,7 +37,9 @@ function buildInvoice(id, issuer = `Issuer ${id}`) {
 describe("InvestMarketplace cursor pagination", () => {
   it("uses the backend cursor contract on the first page and preserves sort/filter params", async () => {
     const firstPage = Array.from({ length: 12 }, (_, index) => buildInvoice(`inv-${index + 1}`));
-    const secondPage = Array.from({ length: 3 }, (_, index) => buildInvoice(`inv-${index + 13}`, `Issuer ${index + 13}`));
+    const secondPage = Array.from({ length: 3 }, (_, index) =>
+      buildInvoice(`inv-${index + 13}`, `Issuer ${index + 13}`)
+    );
     const loadInvoices = jest.fn(async ({ cursor, filters, search, sort, sortDir }) => {
       if (cursor == null) {
         expect(filters).toEqual(
@@ -61,11 +63,7 @@ describe("InvestMarketplace cursor pagination", () => {
       return { items: secondPage, nextCursor: null, hasMore: false };
     });
 
-    render(
-      <InvestMarketplace
-        loadInvoices={loadInvoices}
-      />
-    );
+    render(<InvestMarketplace loadInvoices={loadInvoices} />);
 
     const searchInput = screen.getByLabelText("Search by issuer name");
     fireEvent.change(searchInput, { target: { value: "acme" } });
@@ -145,7 +143,9 @@ describe("InvestMarketplace cursor pagination", () => {
     fireEvent.click(await screen.findByRole("button", { name: /load more/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /This result set is no longer valid\./i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /This result set is no longer valid\./i })
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));

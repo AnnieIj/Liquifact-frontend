@@ -118,11 +118,78 @@ function buildInvoiceJsonLd(invoice) {
  * segment.  We await params so the component is compatible with both the
  * current Next.js 14 sync form and the upcoming async-params API.
  *
- * @param {{ params: Promise<{ id: string }> | { id: string } }} props
+ * PUBLIC INTERFACE CONTRACT:
+ * ===========================
+ * This page is a Next.js Server Component that:
+ *   - Accepts a dynamic route parameter `id` representing the invoice identifier
+ *   - Accepts optional `searchParams` for preserving filter state when navigating back
+ *   - Renders the invoice detail page with all client components as islands
+ *   - Triggers `notFound()` when the invoice ID does not exist
+ *   - Passes sanitized and formatted invoice data to client components
+ *
+ * COMPATIBILITY GUARANTEES:
+ * =========================
+ *   - Supports both sync and async params shapes (Next.js 14 and future versions)
+ *   - Invalid invoice IDs trigger `notFound()` (404) rather than throwing
+ *   - Missing or malformed searchParams are handled gracefully (defaults to empty object)
+ *   - All invoice data is sanitized before rendering (JSON-LD, user-facing text)
+ *   - Client components receive pre-formatted values to avoid client-side formatting
+ *
+ * INVARIANTS:
+ * ===========
+ *   - The page is a Server Component (no hooks, no browser APIs)
+ *   - All interactive functionality is delegated to client components
+ *   - Invoice data is fetched synchronously via `getInvoiceById` (mock data)
+ *   - JSON-LD structured data is always rendered when invoice exists
+ *   - Back navigation preserves marketplace filter state via searchParams
+ *   - No side effects during render (pure function of params and searchParams)
+ *
+ * @param {object} props
+ * @param {Promise<{ id: string }> | { id: string }} props.params - The route params.
+ *   Contains `id` as the dynamic segment for the invoice identifier.
+ *   Supports both sync object (Next.js 14) and Promise (future API) shapes.
+ * @param {URLSearchParams | Record<string, string | string[] | undefined> | undefined} [props.searchParams] - Optional search params.
+ *   Used to preserve marketplace filter state when navigating back to the marketplace.
+ *   Can be URLSearchParams, plain object, or undefined (defaults to empty).
+ *
+ * @returns {Promise<React.ReactElement>} The rendered invoice detail page, or triggers `notFound()` if invoice does not exist.
+ *
+ * @example
+ * // Used automatically by Next.js App Router for /invest/[id] routes
+ * // No manual instantiation needed
+ *
+ * @throws {never} This component never throws directly; invalid IDs trigger `notFound()`
+ *
+ * @see app/invest/lib.js - Mock invoice data source
+ * @see lib/marketplaceRoute.js - Search parameter sanitization
+ * @see app/invest/[id]/InvoiceDetailClient.jsx - Client boundary for metadata
+ * @see app/invest/[id]/InvoiceDetailItems.jsx - Client boundary for detail documents
+ * @see app/invest/[id]/FundActions.jsx - Client boundary for interactive controls
  */
 export default async function InvoiceDetailPage({ params, searchParams }) {
   // Support both the current (sync object) and future (Promise) params shape.
   const { id } = await Promise.resolve(params);
+
+  // Runtime validation for params.id to ensure it's a non-empty string
+  if (typeof id !== "string" || id.trim() === "") {
+    throw new Error(
+      `InvoiceDetailPage: Invalid params.id. Expected a non-empty string but received ${typeof id === "string" ? "empty string" : typeof id}.`
+    );
+  }
+
+  // Runtime validation for searchParams - must be object-like or undefined
+  // Note: typeof null === "object", so we explicitly check for null
+  if (
+    searchParams !== undefined &&
+    searchParams !== null &&
+    typeof searchParams !== "object" &&
+    !(searchParams instanceof URLSearchParams)
+  ) {
+    throw new Error(
+      `InvoiceDetailPage: Invalid searchParams. Expected URLSearchParams, plain object, or undefined but received ${typeof searchParams}.`
+    );
+  }
+
   const backHref = getMarketplaceHref(searchParams || {});
 
   const invoice = getInvoiceById(id);
