@@ -24,9 +24,24 @@ export const MOCK_INVOICES = [
     yieldValue: 8.2,
     status: "Open",
     events: [
-      { id: "evt-001-a", type: "uploaded", actor: "Acme Supplies Ltd", occurredAt: "2025-04-01T09:00:00Z" },
-      { id: "evt-001-b", type: "verified", actor: "Liquidity Desk", occurredAt: "2025-04-03T11:30:00Z" },
-      { id: "evt-001-c", type: "listed", actor: "Marketplace Bot", occurredAt: "2025-04-06T16:45:00Z" },
+      {
+        id: "evt-001-a",
+        type: "uploaded",
+        actor: "Acme Supplies Ltd",
+        occurredAt: "2025-04-01T09:00:00Z",
+      },
+      {
+        id: "evt-001-b",
+        type: "verified",
+        actor: "Liquidity Desk",
+        occurredAt: "2025-04-03T11:30:00Z",
+      },
+      {
+        id: "evt-001-c",
+        type: "listed",
+        actor: "Marketplace Bot",
+        occurredAt: "2025-04-06T16:45:00Z",
+      },
     ],
   },
   {
@@ -40,9 +55,24 @@ export const MOCK_INVOICES = [
     yieldValue: 7.5,
     status: "Open",
     events: [
-      { id: "evt-002-a", type: "uploaded", actor: "Bright Logistics GmbH", occurredAt: "2025-03-20T12:00:00Z" },
-      { id: "evt-002-b", type: "verified", actor: "Risk Review", occurredAt: "2025-03-21T15:30:00Z" },
-      { id: "evt-002-c", type: "listed", actor: "Marketplace Bot", occurredAt: "2025-03-22T10:15:00Z" },
+      {
+        id: "evt-002-a",
+        type: "uploaded",
+        actor: "Bright Logistics GmbH",
+        occurredAt: "2025-03-20T12:00:00Z",
+      },
+      {
+        id: "evt-002-b",
+        type: "verified",
+        actor: "Risk Review",
+        occurredAt: "2025-03-21T15:30:00Z",
+      },
+      {
+        id: "evt-002-c",
+        type: "listed",
+        actor: "Marketplace Bot",
+        occurredAt: "2025-03-22T10:15:00Z",
+      },
     ],
   },
   {
@@ -56,9 +86,24 @@ export const MOCK_INVOICES = [
     yieldValue: 9.1,
     status: "Open",
     events: [
-      { id: "evt-003-a", type: "uploaded", actor: "Sunrise Exports Pte", occurredAt: "2025-02-10T08:45:00Z" },
-      { id: "evt-003-b", type: "verified", actor: "Compliance Team", occurredAt: "2025-02-11T09:10:00Z" },
-      { id: "evt-003-c", type: "listed", actor: "Marketplace Bot", occurredAt: "2025-02-12T14:20:00Z" },
+      {
+        id: "evt-003-a",
+        type: "uploaded",
+        actor: "Sunrise Exports Pte",
+        occurredAt: "2025-02-10T08:45:00Z",
+      },
+      {
+        id: "evt-003-b",
+        type: "verified",
+        actor: "Compliance Team",
+        occurredAt: "2025-02-11T09:10:00Z",
+      },
+      {
+        id: "evt-003-c",
+        type: "listed",
+        actor: "Marketplace Bot",
+        occurredAt: "2025-02-12T14:20:00Z",
+      },
     ],
   },
 ];

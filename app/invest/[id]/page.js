@@ -19,9 +19,18 @@
  *
  * Data flow
  * ─────────
- * `params.id` → `getInvoiceById(id)` (sync, mock data for now)
- *             → `notFound()` if the id is unknown
+ * `params.id` → `validateInvoiceId(id)` (input validation)
+ *             → `fetchInvoiceById(id)` (hardened fetch with deduplication)
+ *             → `notFound()` if the id is invalid or unknown
  *             → RSC renders layout + passes props to client islands
+ *
+ * Concurrency hardening
+ * ─────────────────────
+ * The data fetching layer (`page-data.js`) provides:
+ *   - Request deduplication to prevent duplicate concurrent fetches
+ *   - Input validation to ensure deterministic behavior
+ *   - Immutable snapshots to prevent external mutations
+ *   - Deterministic error handling with classified error types
  */
 
 import Link from "next/link";
@@ -31,7 +40,7 @@ import StatusPill from "@/components/StatusPill";
 import InvoiceTimeline from "@/components/InvoiceTimeline";
 import { copy } from "@/app/copy/en";
 import { INVALID_VALUE_FALLBACK, formatCurrency, formatAmount } from "@/lib/format/currency";
-import { getInvoiceById } from "../lib";
+import { fetchInvoiceById, InvoiceNotFoundError, InvalidInvoiceIdError } from "./page-data";
 import FundActions from "./FundActions";
 import { RouteFocus } from "./FocusManager";
 import InvoiceDetailClient from "./InvoiceDetailClient";
@@ -125,8 +134,28 @@ export default async function InvoiceDetailPage({ params, searchParams }) {
   const { id } = await Promise.resolve(params);
   const backHref = getMarketplaceHref(searchParams || {});
 
-  const invoice = getInvoiceById(id);
+  // Hardened data fetching with validation and error handling
+  let invoice;
+  try {
+    invoice = await fetchInvoiceById(id);
+  } catch (error) {
+    // Handle specific error types deterministically
+    if (error instanceof InvalidInvoiceIdError) {
+      // Invalid ID format - treat as not found for security
+      notFound();
+    }
+    if (error instanceof InvoiceNotFoundError) {
+      // Invoice doesn't exist
+      notFound();
+    }
+    // Other errors (should not happen with mock data, but will with real API)
+    // Log and treat as not found to avoid exposing internal errors
+    console.error("Failed to fetch invoice:", error);
+    notFound();
+  }
 
+  // This should never happen due to error handling above, but we keep it
+  // as a defensive guard
   if (!invoice) {
     notFound();
   }

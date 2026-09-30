@@ -72,7 +72,9 @@ describe("marketplace route state", () => {
 
     render(<InvestMarketplace loadInvoices={async () => mockInvoices} />);
 
-    await waitFor(() => expect(screen.getByRole("textbox", { name: /search by issuer name/i })).toHaveValue("Acme"));
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: /search by issuer name/i })).toHaveValue("Acme")
+    );
     expect(screen.getByRole("button", { name: "Open" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Funded" })).toHaveAttribute("aria-pressed", "true");
   });
