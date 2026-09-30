@@ -325,6 +325,8 @@ export const copy = {
     errorTitle: "Unable to load investable invoices",
     errorDescription: "Unable to load investable invoices right now.",
     errorStatus: "Unable to load investable invoices.",
+    loadingTimeoutTitle: "Marketplace load delayed",
+    loadingTimeoutDescription: "The marketplace is taking longer than expected to load.",
     searchPlaceholder: "Search by issuer name",
     filterSoonLabel: "Soon: These filter controls are currently unavailable.",
     filterLegend: "Marketplace Filters",
