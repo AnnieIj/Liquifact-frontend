@@ -218,6 +218,67 @@ export const MOCK_SETTINGS = [
 
 // DEV-only delay (ms) to keep the load-more cycle perceptible in dev.
 const DEV_DELAY = process.env.NODE_ENV === "development" ? 80 : 0;
+const SETTING_FIELDS = [
+  "id",
+  "category",
+  "label",
+  "type",
+  "value",
+  "description",
+];
+
+// Shared fixtures stay immutable; every load returns independently owned rows.
+for (const setting of MOCK_SETTINGS) {
+  Object.freeze(setting);
+}
+Object.freeze(MOCK_SETTINGS);
+
+function validateSettings(settings) {
+  if (!Array.isArray(settings)) {
+    throw new TypeError("[settings] Settings must be an array.");
+  }
+
+  const ids = new Set();
+  return Array.from(settings, (setting, index) => {
+    if (!setting || typeof setting !== "object" || Array.isArray(setting)) {
+      throw new TypeError(`[settings] Invalid setting row at index ${index}.`);
+    }
+
+    const row = {};
+    for (const field of SETTING_FIELDS) {
+      const value = setting[field];
+      if (
+        typeof value !== "string" ||
+        (field !== "value" && field !== "description" && value.trim() === "")
+      ) {
+        throw new TypeError(
+          `[settings] Invalid setting field "${field}" at index ${index}.`
+        );
+      }
+      row[field] = value;
+    }
+
+    if (ids.has(row.id)) {
+      throw new TypeError(`[settings] Duplicate setting id at index ${index}.`);
+    }
+    ids.add(row.id);
+    return row;
+  });
+}
+
+function isAbortSignal(signal) {
+  try {
+    return (
+      signal !== null &&
+      typeof signal === "object" &&
+      typeof signal.aborted === "boolean" &&
+      typeof signal.addEventListener === "function" &&
+      typeof signal.removeEventListener === "function"
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Resolve the list of settings to display.
@@ -230,26 +291,61 @@ const DEV_DELAY = process.env.NODE_ENV === "development" ? 80 : 0;
  * @param {AbortSignal} [options.signal] - Abort signal honoured during
  *   the synthetic dev delay; the Promise will never throw on abort so
  *   the caller sees a clean cancel.
- * @returns {Promise<Array>}
+ * @returns {Promise<Array>} A fresh copy; invalid options or overrides reject.
  */
-export function loadMockSettings({ signal } = {}) {
-  if (typeof window !== "undefined" && window.__TEST_MOCK_SETTINGS__) {
-    return Promise.resolve(window.__TEST_MOCK_SETTINGS__);
+export function loadMockSettings(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    return Promise.reject(new TypeError("[settings] Options must be an object."));
   }
+
+  let signal;
+  try {
+    signal = options.signal;
+  } catch {
+    return Promise.reject(new TypeError("[settings] Signal must be an AbortSignal."));
+  }
+  if (signal !== undefined && !isAbortSignal(signal)) {
+    return Promise.reject(new TypeError("[settings] Signal must be an AbortSignal."));
+  }
+  if (signal?.aborted) return Promise.resolve([]);
+
+  const hasTestOverride =
+    typeof window !== "undefined" &&
+    process.env.NODE_ENV !== "production" &&
+    Object.prototype.hasOwnProperty.call(window, "__TEST_MOCK_SETTINGS__");
+
+  if (hasTestOverride) {
+    try {
+      return Promise.resolve(validateSettings(window.__TEST_MOCK_SETTINGS__));
+    } catch (error) {
+      const isSanitizedError =
+        error instanceof TypeError && error.message.startsWith("[settings]");
+      return Promise.reject(
+        isSanitizedError
+          ? error
+          : new TypeError("[settings] Invalid settings override.")
+      );
+    }
+  }
+
   return new Promise((resolve) => {
-    if (signal?.aborted) return resolve([]);
-    const timer = setTimeout(() => {
-      if (signal?.aborted) return resolve([]);
-      resolve(MOCK_SETTINGS);
+    let settled = false;
+    let timer;
+    // Timeout and abort share one idempotent completion path.
+    const finish = (settings) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve(settings);
+    };
+    const onAbort = () => finish([]);
+
+    timer = setTimeout(() => {
+      finish(validateSettings(MOCK_SETTINGS));
     }, DEV_DELAY);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        resolve([]);
-      },
-      { once: true }
-    );
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
   });
 }
 
@@ -262,7 +358,11 @@ export function loadMockSettings({ signal } = {}) {
  */
 export function getCategoryList(list) {
   if (!Array.isArray(list)) return ["all"];
-  const set = new Set((list ?? []).map((s) => s?.category).filter(Boolean));
+  const set = new Set(
+    list
+      .map((setting) => setting?.category)
+      .filter((category) => typeof category === "string" && category.trim() !== "")
+  );
   return ["all", ...[...set].sort()];
 }
 
@@ -277,5 +377,6 @@ export { getCategoryList as getCategories };
  * @returns {object|undefined}
  */
 export function getSettingById(id) {
+  if (typeof id !== "string" || id.trim() === "") return undefined;
   return MOCK_SETTINGS.find((s) => s.id === id);
 }
