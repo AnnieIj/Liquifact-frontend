@@ -1,3 +1,5 @@
+import { TRUSTED_WALLET_INSTALL_URL } from "./constants";
+
 /**
  * @typedef {Object} CopyDictionary
  * @property {Object} home - Home page copy
@@ -12,7 +14,7 @@
  * @property {string} home.apiStatus
  * @property {string} home.checkApiHealth
  * @property {string} home.checking
- * @property {{ connected: string, degraded: string, unreachable: string, rawResponse: string }} home.healthStatus
+ * @property {{connected: string, degraded: string, unreachable: string, rawResponse: string}} home.healthStatus
  * @property {Object} invest - Invest page copy
  * @property {string} invest.title
  * @property {string} invest.subtext
@@ -38,6 +40,8 @@
  * @property {string} invest.announceFilteredCount
  * @property {string} invest.announceInvoicesLoaded
  * @property {string} invest.announceShowing
+ * @property {string} invest.routeBoundaryTitle - Fallback heading when the invest layout boundary rejects invalid input
+ * @property {string} invest.routeBoundaryDescription - Fallback body for the invest layout boundary
  * @property {Object} invest.fundAmount - Partial funding input copy
  * @property {string} invest.fundAmount.label
  * @property {string} invest.fundAmount.placeholder
@@ -74,6 +78,50 @@
  * @property {string} invest.detail.copyErrorTitle
  * @property {string} invest.detail.loadErrorMsg
  * @property {string} invest.detail.loadErrorTitle
+ * @property {string} invest.detail.actionGroupLabel
+ * @property {string} invest.detail.labelReference
+ * @property {string} invest.detail.exportGroupLabel
+ * @property {string} invest.detail.exportCSVButton
+ * @property {string} invest.detail.exportCSVLabel
+ * @property {string} invest.detail.exportJSONButton
+ * @property {string} invest.detail.exportJSONLabel
+ * @property {string} invest.detail.densityToggleLabel
+ * @property {string} invest.detail.densityCompact
+ * @property {string} invest.detail.densityComfortable
+ * @property {string} invest.detail.densityCompactAriaLabel
+ * @property {string} invest.detail.densityComfortableAriaLabel
+ * @property {string} invest.detail.densityCurrentAriaLabel
+ * @property {Object} invest.detail.funding - Funding submission lifecycle copy
+ * @property {string} invest.detail.funding.pendingButton
+ * @property {string} invest.detail.funding.successTitle
+ * @property {string} invest.detail.funding.successMsg
+ * @property {string} invest.detail.funding.failureTitle
+ * @property {string} invest.detail.funding.failureMsg
+ * @property {string} invest.detail.funding.timeoutTitle
+ * @property {string} invest.detail.funding.timeoutMsg
+ * @property {string} invest.detail.funding.conflictTitle
+ * @property {string} invest.detail.funding.conflictMsg
+ * @property {string} invest.detail.funding.walletRejectTitle
+ * @property {string} invest.detail.funding.walletRejectMsg
+ * @property {string} invest.detail.funding.blockedByTabMsg
+ * @property {string} invest.detail.funding.blockedByTabLabel
+ * @property {string} invest.detail.funding.retryButton
+ * @property {string} invest.detail.funding.retryHint
+ * @property {Object} invest.detail.networkMismatch - Network mismatch banner copy
+ * @property {string} invest.detail.networkMismatch.bannerTitle
+ * @property {string} invest.detail.networkMismatch.bannerBody
+ * @property {string} invest.detail.networkMismatch.bannerBodyUnknown
+ * @property {string} invest.detail.networkMismatch.bannerBodyDisconnected
+ * @property {string} invest.detail.networkMismatch.alertLabel
+ * @property {string} invest.detail.networkMismatch.announceMessage
+ * @property {Object} invest.detail.inlineEdit - Inline edit mode copy for invoice-detail metadata rows
+ * @property {string} invest.detail.inlineEdit.editButton
+ * @property {string} invest.detail.inlineEdit.saveButton
+ * @property {string} invest.detail.inlineEdit.cancelButton
+ * @property {string} invest.detail.inlineEdit.errorRequired
+ * @property {string} invest.detail.inlineEdit.announceSaved
+ * @property {string} invest.detail.inlineEdit.announceCancelled
+ * @property {Object} invest.detail.bulk - Bulk-select toolbar copy for invoice detail documents
  * @property {Object} invoices - Invoices page copy
  * @property {string} invoices.title
  * @property {string} invoices.subtext
@@ -82,6 +130,30 @@
  * @property {string} invoices.errorDescription
  * @property {string} invoices.backToHome
  * @property {string} invoices.connectWallet
+ * @property {string} invoices.editRowAction
+ * @property {string} invoices.editRowAriaLabel
+ * @property {string} invoices.saveEditAction
+ * @property {string} invoices.saveEditAriaLabel
+ * @property {string} invoices.cancelEditAction
+ * @property {string} invoices.cancelEditAriaLabel
+ * @property {string} invoices.issuerLabel
+ * @property {string} invoices.amountLabel
+ * @property {string} invoices.currencyLabel
+ * @property {string} invoices.dueDateLabel
+ * @property {string} invoices.yieldLabel
+ * @property {string} invoices.errorIssuerRequired
+ * @property {string} invoices.errorAmountRequired
+ * @property {string} invoices.errorDueDateRequired
+ * @property {string} invoices.errorCurrencyRequired
+ * @property {string} invoices.announceEditStarted
+ * @property {string} invoices.announceEditSuccess
+ * @property {string} invoices.announceEditCancelled
+ * @property {string} invoices.copyIdButton
+ * @property {string} invoices.copyIdAriaLabel
+ * @property {string} invoices.copyIdSuccessTitle
+ * @property {string} invoices.copyIdSuccessMsg
+ * @property {string} invoices.copyIdErrorTitle
+ * @property {string} invoices.copyIdErrorMsg
  * @property {Object} layout - Layout copy
  * @property {string} layout.backToHome
  * @property {string} layout.connectWallet
@@ -154,11 +226,24 @@
  * @property {string} wallet.announceError
  * @property {string} wallet.announceWrongNetwork
  * @property {string} wallet.announceNoWallet
+ * @property {string} wallet.errorTitle
+ * @property {string} wallet.errorDescription
+ * @property {string} wallet.errorActionLabel
+ * @property {string} wallet.errorPreviewLabel
+ * @property {Object} nav - Site navigation copy
+ * @property {string} nav.errorTitle
+ * @property {string} nav.errorDescription
+ * @property {string} nav.errorActionLabel
+ * @property {string} nav.announceNavigation - Template: "Navigated to {label}"
  * @property {Object} error - Error page copy
  * @property {string} error.title
  * @property {string} error.description
  * @property {string} error.actionLabel
  * @property {string} error.previewLabel
+ * @property {Object} network - Network status copy
+ * @property {string} network.offlineBanner
+ * @property {string} network.reconnectedTitle
+ * @property {string} network.reconnectedMsg
  * @property {Object} notFound - Not found page copy
  * @property {string} notFound.heading
  * @property {string} notFound.description
@@ -168,6 +253,7 @@
  * @property {string} globalError.heading
  * @property {string} globalError.description
  * @property {string} globalError.reloadLabel
+ * @property {string} globalError.resettingLabel
  * @property {string} globalError.homeLabel
  * @property {Object} invoiceTimeline - Invoice lifecycle timeline copy
  * @property {string} invoiceTimeline.heading
@@ -179,30 +265,111 @@
  * @property {string} invoiceTimeline.statusCompleted
  * @property {string} invoiceTimeline.statusCurrent
  * @property {string} invoiceTimeline.statusPending
+ * @property {Object} settings - Settings page copy
+ * @property {string} settings.pageTitle
+ * @property {string} settings.pageSub
+ * @property {string} settings.editAction
+ * @property {string} settings.editActionLabel
+ * @property {string} settings.saveAction
+ * @property {string} settings.saveActionLabel
+ * @property {string} settings.cancelAction
+ * @property {string} settings.cancelActionLabel
+ * @property {string} settings.emptyValue
+ * @property {string} settings.savedAnnouncement
+ * @property {string} settings.cancelledAnnouncement
+ * @property {string} settings.invalidAnnouncement
+ * @property {Object} settings.fields - Field-level copy
+ * @property {string} settings.fields.displayName.label
+ * @property {string} settings.fields.displayName.description
+ * @property {string} settings.fields.displayName.placeholder
+ * @property {string} settings.fields.email.label
+ * @property {string} settings.fields.email.description
+ * @property {string} settings.fields.email.placeholder
+ * @property {Object} settings.errors - Validation error messages
+ * @property {string} settings.errors.required
+ * @property {string} settings.errors.displayNameTooShort
+ * @property {string} settings.errors.displayNameTooLong
+ * @property {string} settings.errors.emailTooLong
+ * @property {string} settings.errors.invalidEmail
+ * @property {string} settings.copyIdentifier
+ * @property {string} settings.toastCopySuccessMsg
+ * @property {string} settings.toastCopySuccessTitle
+ * @property {string} settings.toastCopyErrorMsg
+ * @property {string} settings.toastCopyErrorTitle
+ * @property {string} settings.errorStatus
+ * @property {string} settings.loadStatus
+ * @property {string} settings.showStatus
+ * @property {string} settings.noMatch
+ * @property {string} settings.empty
+ * @property {string} settings.loadMore
+ * @property {string} settings.densityLabel
+ * @property {string} settings.densityDescription
+ * @property {string} settings.exportGroupLabel
+ * @property {string} settings.exportCSVLabel
+ * @property {string} settings.exportJSONLabel
+ * @property {string} settings.exportAnnounceCSV
+ * @property {string} settings.exportAnnounceJSON
+ * @property {string} settings.exportEmpty
+ * @property {Object} investDetail - Invoice detail page copy (used by InvoiceDetailItems.jsx)
+ * @property {string} investDetail.heading
+ * @property {string} investDetail.subtitle
+ * @property {string} investDetail.dtIssuer
+ * @property {string} investDetail.dtAmount
+ * @property {string} investDetail.dtYield
+ * @property {string} investDetail.dtMaturity
+ * @property {string} investDetail.dtStatus
+ * @property {string} investDetail.fundButton
+ * @property {string} investDetail.fundButtonAriaLabel
+ * @property {string} investDetail.copyLinkButton
+ * @property {string} investDetail.copyLinkAriaLabel
+ * @property {string} investDetail.printButton
+ * @property {string} investDetail.printAriaLabel
+ * @property {string} investDetail.disclaimer
+ * @property {string} investDetail.loadErrorTitle
+ * @property {string} investDetail.loadErrorDescription
+ * @property {string} investDetail.backToMarketplace
+ * @property {string} investDetail.toastCopySuccess
+ * @property {string} investDetail.toastCopySuccessTitle
+ * @property {string} investDetail.toastCopyError
+ * @property {string} investDetail.toastCopyErrorTitle
  */
+function deepFreeze(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return value;
+  }
+
+  seen.add(value);
+
+  Object.values(value).forEach((nestedValue) => {
+    deepFreeze(nestedValue, seen);
+  });
+
+  return Object.freeze(value);
+}
 
 /** @type {CopyDictionary} */
-export const copy = {
+export const copy = deepFreeze({
   home: {
-    heroTitle: "Global Invoice Liquidity Network on Stellar",
-    heroSub:
-      "Unlock liquidity from unpaid invoices instantly. SMEs get working capital; investors earn yield. Tokenized invoices, escrow on Soroban.",
-    boxBusinessTitle: "For Businesses",
-    boxBusinessSub: "Upload invoices, get instant stablecoin liquidity.",
-    boxBusinessAriaLabel:
-      "For Businesses \u2013 upload invoices and get instant stablecoin liquidity",
-    boxInvestTitle: "For Investors",
-    boxInvestSub: "Fund tokenized invoices and earn yield at maturity.",
-    boxInvestAriaLabel: "For Investors \u2013 fund tokenized invoices and earn yield at maturity",
-    apiStatus: "API status",
-    checkApiHealth: "Check backend health",
-    checking: "Checking\u2026",
-    // Health status states - maps to getHealth return values
+    heroTitle: 'Liquifact',
+    heroSub: 'Invoice financing for modern businesses',
+    boxBusinessTitle: 'For businesses',
+    boxBusinessSub: 'Upload and tokenize your invoices',
+    boxBusinessAriaLabel: 'Learn more about business invoice financing',
+    boxInvestTitle: 'For investors',
+    boxInvestSub: 'Fund invoices and earn yield',
+    boxInvestAriaLabel: 'Learn more about investing in invoices',
+    apiStatus: 'API status',
+    checkApiHealth: 'Check API health',
+    checking: 'Checking...',
     healthStatus: {
-      connected: "Connected",
-      degraded: "Degraded",
-      unreachable: "Unreachable",
-      rawResponse: "Raw response",
+      connected: 'Connected',
+      degraded: 'Degraded',
+      unreachable: 'Unreachable',
+      rawResponse: 'Raw response',
     },
   },
   invest: {
@@ -215,6 +382,8 @@ export const copy = {
     errorTitle: "Unable to load investable invoices",
     errorDescription: "Unable to load investable invoices right now.",
     errorStatus: "Unable to load investable invoices.",
+    loadingTimeoutTitle: "Marketplace load delayed",
+    loadingTimeoutDescription: "The marketplace is taking longer than expected to load.",
     searchPlaceholder: "Search by issuer name",
     filterSoonLabel: "Soon: These filter controls are currently unavailable.",
     filterLegend: "Marketplace Filters",
@@ -232,6 +401,21 @@ export const copy = {
     announceFilteredCount: "{matched} of {total} invoices match",
     announceInvoicesLoaded: "{count} investable invoices loaded",
     announceShowing: "Showing {shown} of {total} investable invoices",
+    routeBoundaryTitle: "Marketplace unavailable",
+    routeBoundaryDescription:
+      "This part of the marketplace could not be displayed. Please reload the page to try again.",
+    invalidCursorTitle: "This result set is no longer valid.",
+    invalidCursorDescription:
+      "This result set is no longer valid. Refresh the marketplace to continue.",
+    endOfList: "You have reached the end of the list.",
+    filters: {
+      errorYieldMin: "Minimum yield must be a non-negative number.",
+      errorYieldMax: "Maximum yield must be a non-negative number.",
+      errorYieldRange: "Minimum yield cannot exceed maximum yield.",
+      errorMaturityFrom: "Maturity from must be a valid date (YYYY-MM-DD).",
+      errorMaturityTo: "Maturity to must be a valid date (YYYY-MM-DD).",
+      errorMaturityRange: "Maturity from cannot be after maturity to.",
+    },
     fundAmount: {
       label: "Funding amount",
       placeholder: "e.g. 1000",
@@ -243,6 +427,33 @@ export const copy = {
       errorPrecision: "Amount must not exceed {decimals} decimal places for {currency}.",
       submitLabel: "Fund this invoice",
       submittingLabel: "Submitting\u2026",
+    },
+    bulk: {
+      toolbarLabel: "Bulk actions toolbar",
+      selectAllLabel: "Select {selected} of {total}",
+      selectAllAria: "Select all invoices. Currently {selected} of {total} selected.",
+      rowCheckboxAria: "Select invoice {id} from {issuer}",
+      selectedCount: "{selected} of {total} invoices selected.",
+      clearButton: "Clear selection",
+      exportButton: "Export",
+      exportButtonAria: "Export selected invoices as a JSON download",
+      deleteButton: "Delete",
+      deleteButtonAria: "Delete {count} selected invoices after confirmation",
+      rowSelectedAnnounced: "Selected {count} invoices.",
+      rowClearedAnnounced: "Selection cleared.",
+      allSelectedAnnounced: "All {total} invoices selected.",
+      exportSuccessTitle: "Export ready",
+      exportSuccessMsg: "Exported {count} invoice{plural}.",
+      exportEmptyMsg: "No invoices selected to export.",
+      deleteConfirmTitle: "Delete selected invoices?",
+      deleteConfirmBody:
+        "You are about to permanently delete {count} invoice{plural} from the marketplace. This cannot be undone.",
+      deleteConfirmConfirmLabel: "Delete {count} invoice{plural}",
+      deleteConfirmCancelLabel: "Cancel",
+      deleteSuccessTitle: "Invoices deleted",
+      deleteSuccessMsg: "Removed {count} invoice{plural} from the marketplace.",
+      deleteErrorTitle: "Delete failed",
+      deleteErrorMsg: "Could not delete the selected invoices. Please try again.",
     },
     detail: {
       pageTitle: "Invoice details",
@@ -259,7 +470,7 @@ export const copy = {
       fundButton: "Fund this invoice",
       fundButtonLabel: "Fund this invoice",
       copyLinkButton: "Copy link",
-      copyLinkButtonLabel: "Copy invoice link to clipboard",
+      copyLinkButtonLabel: "Copy link",
       printButton: "Print / Save PDF",
       printButtonLabel: "Print or save this invoice as PDF",
       disclaimerNote:
@@ -270,6 +481,102 @@ export const copy = {
       copyErrorTitle: "Copy failed",
       loadErrorMsg: "Unable to load invoice details right now.",
       loadErrorTitle: "Unable to load invoice details",
+      actionGroupLabel: "Invoice actions",
+      labelReference: "Reference",
+      exportGroupLabel: "Invoice data export",
+      exportCSVButton: "Export CSV",
+      exportCSVLabel: "Export invoice data as CSV",
+      exportJSONButton: "Export JSON",
+      exportJSONLabel: "Export invoice data as JSON",
+      densityToggleLabel: "Display density",
+      densityCompact: "Compact",
+      densityComfortable: "Comfortable",
+      densityCompactAriaLabel: "Switch to compact density",
+      densityComfortableAriaLabel: "Switch to comfortable density",
+      densityCurrentAriaLabel: "Current density: {density}",
+      // ── Funding submission lifecycle (issue #1132: deterministic failure
+      //    recovery). {amount} and {currency} are replaced at call time.
+      funding: {
+        // Fund button label while a submission is in-flight.
+        pendingButton: "Funding…",
+        // Confirmed success — idempotency key has been cleared server-safe.
+        successTitle: "Funding submitted",
+        successMsg: "Funding request for {amount} {currency} submitted.",
+        // Generic failure (network error, parse error, unknown).
+        failureTitle: "Funding failed",
+        failureMsg:
+          "Funding request for {amount} {currency} failed. Nothing was committed — you can safely retry.",
+        // Timeout: the request may or may not have reached the server; the
+        // preserved idempotency key makes a retry safe.
+        timeoutTitle: "Request timed out",
+        timeoutMsg:
+          "The funding request timed out. If it was already processed, retrying will not charge twice.",
+        // Server conflict (HTTP 409): the invoice state changed underneath us.
+        conflictTitle: "Funding conflict",
+        conflictMsg:
+          "This invoice was updated elsewhere. Refresh the marketplace to see its current state before retrying.",
+        // Wallet declined to sign the transaction — no request was sent.
+        walletRejectTitle: "Wallet declined",
+        walletRejectMsg: "The transaction was not signed, so nothing was submitted.",
+        // Another tab holds the in-flight lock for this invoice.
+        blockedByTabMsg: "A funding request for this invoice is already in progress in another tab.",
+        blockedByTabLabel: "Funding in progress elsewhere",
+        // Retry affordance shown in the FAILURE state; the preserved
+        // idempotency key guarantees the retry is server-side deduplicated.
+        retryButton: "Retry funding",
+        retryHint: "Retrying re-uses the same secure request reference.",
+      },
+      networkMismatch: {
+        // Banner shown when the wallet is connected to the wrong network.
+        // {walletNetwork} and {invoiceNetwork} are replaced at render time.
+        bannerTitle: "Wrong network",
+        bannerBody:
+          "Your wallet is on {walletNetwork} but this invoice requires {invoiceNetwork}. Switch your wallet network to continue.",
+        // Shown when the wallet is connected but the network cannot be read.
+        bannerBodyUnknown:
+          "Your wallet network could not be read. This invoice requires {invoiceNetwork}. Reconnect your wallet to continue.",
+        // Shown when no wallet is connected.
+        bannerBodyDisconnected: "Connect your wallet to {invoiceNetwork} to fund this invoice.",
+        // aria-label for screen readers describing the alert region.
+        alertLabel: "Network mismatch warning",
+        // Announced to screen readers when the banner first appears.
+        announceMessage: "Network mismatch: please switch your wallet to {invoiceNetwork}.",
+      },
+      inlineEdit: {
+        editButton: "Edit {field}",
+        saveButton: "Save",
+        cancelButton: "Cancel",
+        errorRequired: "{field} is required.",
+        announceSaved: "{field} updated successfully.",
+        announceCancelled: "Edit cancelled.",
+      },
+      bulk: {
+        sectionHeading: "Invoice documents",
+        sectionSub: "Select documents to export or remove from this invoice.",
+        listAriaLabel: "Invoice detail documents",
+        toolbarLabel: "Invoice detail bulk actions",
+        selectAllLabel: "Select {selected} of {total}",
+        selectAllAria: "Select all invoice documents. Currently {selected} of {total} selected.",
+        rowCheckboxAria: "Select document {name} ({id})",
+        selectedCount: "{selected} of {total} documents selected.",
+        clearButton: "Clear selection",
+        exportButton: "Export",
+        exportButtonAria: "Export selected documents as a JSON download",
+        deleteButton: "Delete",
+        deleteButtonAria: "Delete {count} selected documents after confirmation",
+        exportSuccessTitle: "Export ready",
+        exportSuccessMsg: "Exported {count} document{plural}.",
+        exportEmptyMsg: "No documents selected to export.",
+        deleteConfirmTitle: "Delete selected documents?",
+        deleteConfirmBody:
+          "You are about to permanently delete {count} document{plural} from this invoice. This cannot be undone.",
+        deleteConfirmConfirmLabel: "Delete {count} document{plural}",
+        deleteConfirmCancelLabel: "Cancel",
+        deleteSuccessTitle: "Documents deleted",
+        deleteSuccessMsg: "Removed {count} document{plural} from this invoice.",
+        deleteErrorTitle: "Delete failed",
+        deleteErrorMsg: "Could not delete the selected documents. Please try again.",
+      },
     },
   },
   invoices: {
@@ -280,10 +587,122 @@ export const copy = {
     errorDescription: "There was a problem loading your invoices. Please try again later.",
     backToHome: "\u2190 LiquiFact",
     connectWallet: "Connect Wallet",
+    editRowAction: "Edit",
+    editRowAriaLabel: "Edit invoice {id}",
+    saveEditAction: "Save",
+    saveEditAriaLabel: "Save edits for invoice {id}",
+    cancelEditAction: "Cancel",
+    cancelEditAriaLabel: "Cancel editing invoice {id}",
+    issuerLabel: "Issuer",
+    amountLabel: "Amount",
+    currencyLabel: "Currency",
+    dueDateLabel: "Due date",
+    yieldLabel: "Estimated yield",
+    errorIssuerRequired: "Issuer name is required.",
+    errorAmountRequired: "Amount is required and must be valid.",
+    errorDueDateRequired: "Due date is required.",
+    errorCurrencyRequired: "Currency is required.",
+    announceEditStarted: "Editing invoice {id}.",
+    announceEditSuccess: "Invoice {id} updated successfully.",
+    announceEditCancelled: "Editing cancelled for invoice {id}.",
+    copyIdButton: "Copy ID",
+    copyIdAriaLabel: "Copy upload identifier {id}",
+    copyIdSuccessTitle: "ID copied",
+    copyIdSuccessMsg: "Upload identifier copied to clipboard.",
+    copyIdErrorTitle: "Copy failed",
+    copyIdErrorMsg: "Could not copy the upload identifier to clipboard.",
+  },
+  settings: {
+    title: "Settings",
+    description: "Manage your display and notification preferences.",
+    pageTitle: "Settings",
+    pageSub:
+      "Manage your profile preferences. Updates are saved locally to this browser and apply to this device only.",
+    editAction: "Edit",
+    editActionLabel: "Edit {field}",
+    saveAction: "Save",
+    saveActionLabel: "Save {field}",
+    cancelAction: "Cancel",
+    cancelActionLabel: "Cancel editing {field}",
+    emptyValue: "Not set",
+    savedAnnouncement: "{label} saved.",
+    cancelledAnnouncement: "Edit cancelled. {label} unchanged.",
+    invalidAnnouncement: "{label} not saved: {error}",
+    subtext:
+      "Personalize your LiquiFact experience. Preferences are stored locally and applied across the app.",
+    emptyState: "No preferences available. Connect your wallet to unlock settings.",
+    errorTitle: "Unable to load settings",
+    errorDescription: "Unable to load settings right now.",
+    errorStatus: "Unable to load settings.",
+    retryAction: "Try again",
+    timeoutTitle: "Loading timed out",
+    timeoutDescription:
+      "Settings are taking longer than expected to load. You can try again or check your connection.",
+    exhaustedTitle: "Loading failed",
+    exhaustedDescription:
+      "Settings could not be loaded after multiple attempts. Please check your connection or reload the page.",
+    searchPlaceholder: "Search preferences\u2026",
+    filterLegend: "Settings filters",
+    filterHelp:
+      "Use the category selector or the search box to narrow the list. Paging is reset whenever a filter changes.",
+    filterCategory: "Category:",
+    filterSearch: "Search:",
+    allCategories: "All categories",
+    clearFilters: "Reset filters",
+    noMatchFilter: "No preferences match the active filters.",
+    listAriaLabel: "Settings list",
+    loadingAriaLabel: "Loading settings",
+    loadMore: "Load more",
+    loadMoreAriaLabel: "Load more preferences",
+    endOfList: "You have reached the end of the list.",
+    announceNoSettings: "No settings available",
+    announceLoaded: "{count} preferences loaded",
+    announceFiltered: "{matched} of {total} preferences match",
+    announceNoMatch: "No preferences match",
+    announceShowing: "Showing {shown} of {total} preferences",
+    fields: {
+      displayName: {
+        label: "Display name",
+        description: "Shown next to your activity across LiquiFact.",
+        placeholder: "e.g. Acme Treasury",
+      },
+      email: {
+        label: "Email",
+        description: "Used for invoice notifications only. Never displayed publicly.",
+        placeholder: "name@example.com",
+      },
+    },
+    errors: {
+      required: "This field cannot be empty.",
+      displayNameTooShort: "Display name must be at least 2 characters.",
+      displayNameTooLong: "Display name must be 100 characters or fewer.",
+      emailTooLong: "Email must be 254 characters or fewer.",
+      invalidEmail: "Please enter a valid email address.",
+    },
+    copyIdentifier: "Reference ID",
+    toastCopySuccessMsg: "Reference ID copied to clipboard.",
+    toastCopySuccessTitle: "Copied!",
+    toastCopyErrorMsg: "Unable to copy \u2014 please copy manually.",
+    toastCopyErrorTitle: "Copy failed",
+    noMatch: "No preferences match the active filters",
+    empty: "No preferences available. Connect your wallet or adjust your filters.",
+    densityLabel: "Display density",
+    densityDescription: "Adjust the spacing of settings controls.",
+    exportGroupLabel: "Export settings",
+    exportCSVLabel: "Export the current settings view as a CSV file",
+    exportJSONLabel: "Export the current settings view as a JSON file",
+    exportAnnounceCSV: "Settings exported as CSV.",
+    exportAnnounceJSON: "Settings exported as JSON.",
+    exportEmpty: "No settings to export \u2014 adjust filters or wait for settings to load.",
   },
   layout: {
     backToHome: "\u2190 LiquiFact",
     connectWallet: "Connect Wallet",
+  },
+  invoiceDetail: {
+    copyIdLabel: "Reference ID",
+    copyIdSuccess: "Reference ID copied to clipboard.",
+    copyIdError: "Unable to copy — please copy manually.",
   },
   footer: {
     docs: "Documentation",
@@ -331,15 +750,17 @@ export const copy = {
     disconnectButton: "Disconnect",
     retryButton: "Retry Connection",
     switchNetworkButton: "Switch Network",
-    installWalletButton: "Install Wallet",
+    installWalletButton: "Install Stellar Wallet",
     copyAddressButton: "Copy wallet address",
     helperDisconnected: "Connect your Stellar wallet to access the platform",
     helperConnecting: "Please approve the connection in your wallet",
     helperConnected: "Connected to Stellar {network}",
     helperError: "Connection failed. Please try again.",
     helperWrongNetwork: "Please switch to the Stellar public network",
+    helperInvalidProvider:
+      "The detected wallet provider could not be verified. Reinstall the Freighter extension and reload.",
     helperNoWallet: "No Stellar wallet detected. Install one to continue",
-    installWalletUrl: "https://www.stellar.org/wallets",
+    installWalletUrl: TRUSTED_WALLET_INSTALL_URL,
     toastConnectedTitle: "Wallet connected",
     toastConnectedMsg: "Wallet connected successfully.",
     toastErrorTitle: "Connection failed",
@@ -356,13 +777,47 @@ export const copy = {
     announceDisconnected: "Wallet disconnected.",
     announceError: "Wallet connection failed.",
     announceWrongNetwork: "Wallet connected to wrong network.",
+    announceInvalidProvider: "Unverified wallet provider detected.",
     announceNoWallet: "No wallet detected.",
+    densityToggleLabel: "Wallet density",
+    densityCompact: "Compact",
+    densityComfortable: "Comfortable",
+    densityCompactAriaLabel: "Switch wallet view to compact density",
+    densityComfortableAriaLabel: "Switch wallet view to comfortable density",
+    // Wallet error-boundary fallback (see components/WalletErrorBoundary.jsx)
+    errorTitle: "Wallet unavailable",
+    errorDescription:
+      "The wallet controls hit an unexpected problem. The rest of the page still works — retry to reload them.",
+    errorActionLabel: "Retry wallet",
+    errorPreviewLabel: "Wallet",
   },
   error: {
     title: "Something went wrong",
     description: "An unexpected error occurred. We\u2019ve been notified and are looking into it.",
     actionLabel: "Try again",
+    reloadActionLabel: "Reload page",
     previewLabel: "Error boundary",
+  },
+  toastError: {
+    title: "Notifications failed to load",
+    description:
+      "An unexpected error occurred while showing notifications. You can retry, and the rest of the app is unaffected.",
+    actionLabel: "Retry",
+    previewLabel: "Error boundary",
+  },
+  nav: {
+    errorTitle: "Navigation unavailable",
+    errorDescription:
+      "The site navigation ran into an unexpected error. You can retry, or reload the page.",
+    errorActionLabel: "Retry",
+    /** Announced politely by NavMenu when the user navigates to a new route.
+     *  Replace {label} with the matching NAV_LINKS label (e.g. "Home"). */
+    announceNavigation: "Navigated to {label}",
+  },
+  network: {
+    offlineBanner: "You are offline — some features may be unavailable.",
+    reconnectedTitle: "Back online",
+    reconnectedMsg: "Your network connection has been restored.",
   },
   notFound: {
     heading: "Page not found",
@@ -374,6 +829,7 @@ export const copy = {
     heading: "Critical error",
     description: "A layout-level error occurred. Please reload the page or return home.",
     reloadLabel: "Reload page",
+    resettingLabel: "Reloading\u2026",
     homeLabel: "\u2190 Back to LiquiFact",
   },
   invoiceTimeline: {
@@ -386,5 +842,83 @@ export const copy = {
     statusCompleted: "Completed",
     statusCurrent: "Current",
     statusPending: "Pending",
+    emptyState: "No state events recorded",
+    loadingState: "Loading invoice details",
+    notFoundState: "Invoice not found",
+    unknownEvent: "Unknown event",
+    unknownActor: "Unknown actor",
+    errorTitle: "Unable to load invoice details",
+    errorDescription: "We could not load the timeline for this invoice right now.",
+    retryLabel: "Retry",
+    byActor: "By {actor}",
+  },
+  investDetail: {
+    heading: "Invoice details",
+    subtitle: "Review the invoice terms before funding.",
+    dtIssuer: "Issuer",
+    dtAmount: "Amount",
+    dtYield: "Estimated yield",
+    dtMaturity: "Maturity date",
+    dtStatus: "Status",
+    fundButton: "Fund this invoice",
+    fundButtonAriaLabel: "Fund this invoice",
+    copyLinkButton: "Copy link",
+    copyLinkAriaLabel: "Copy invoice link to clipboard",
+    printButton: "Print / Save PDF",
+    printAriaLabel: "Print or save this invoice as PDF",
+    disclaimer:
+      "Note: Yield references are educational only and reflect on-chain basis-point assumptions. Invoice contracts settle at maturity. Funding commits principal and is subject to wallet approval.",
+    loadErrorTitle: "Unable to load invoice details",
+    loadErrorDescription: "Unable to load invoice details right now.",
+    backToMarketplace: "\u2190 Back to marketplace",
+    toastCopySuccess: "Invoice link copied to clipboard.",
+    toastCopySuccessTitle: "Link copied",
+    toastCopyError: "Could not copy link to clipboard.",
+    toastCopyErrorTitle: "Copy failed",
   },
 };
+/**
+ * Executes an operation with deterministic failure recovery.
+ * Provides retries, partial completion fallbacks, and safe observability.
+ * 
+ * @param {Function} operation - Async function to execute.
+ * @param {Object} options - { retries, fallback, timeoutMs }
+ * @returns {Promise<any>}
+ */
+export async function executeWithRecovery(operation, options = {}) {
+  if (typeof operation !== 'function') {
+    throw new Error('executeWithRecovery: operation must be a function');
+  }
+
+  const { retries = 3, fallback = undefined, timeoutMs = 5000 } = options;
+  let attempt = 0;
+  
+  while (attempt <= retries) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const result = await Promise.race([
+        operation(),
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () => reject(new Error('Timeout')));
+        })
+      ]);
+      clearTimeout(timeoutId);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      attempt++;
+      if (attempt > retries) {
+        // Log diagnosable error without exposing sensitive data payload
+        console.error('[Recovery] Operation failed after retries:', error.message || 'Unknown error');
+        if (fallback !== undefined) {
+          return fallback;
+        }
+        throw new Error('Deterministic failure recovery exhausted: ' + (error.message || 'Unknown'));
+      }
+      // Simple backoff
+      await new Promise(r => setTimeout(r, 10 * attempt));
+    }
+  }
+}
