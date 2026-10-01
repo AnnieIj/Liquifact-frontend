@@ -1,5 +1,3 @@
-import MarketplaceShell from "./MarketplaceShell";
-
 /**
  * @file app/invest/layout.js
  *
@@ -43,6 +41,11 @@ import MarketplaceShell from "./MarketplaceShell";
  * @see app/invest/MarketplaceShell.jsx - The client component that provides state
  * @see app/invest/MarketplaceContext.jsx - The context for shared invoice state
  */
+import MarketplaceShell from "./MarketplaceShell";
+import { copy } from "@/app/copy/en";
+import { reportError } from "@/lib/observability/reportError";
+import { validateInvestChildren, validateInvestLayoutParams } from "./validation";
+
 export default function InvestLayout({ children }) {
   // Runtime validation to ensure children is a valid React node.
   // This prevents silent failures and makes debugging easier.
