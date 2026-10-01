@@ -58,6 +58,9 @@
     },
     "eslint-plugin-react": {
       "eslint": "^10.9.1"
+    },
+    "babel-preset-current-node-syntax": {
+      "@babel/core": "^8.0.1"
     }
   }
 }
