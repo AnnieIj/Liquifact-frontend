@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+
+import { useState, useCallback, useEffect, useRef } from "react";
 import { copy } from "../copy/en";
 import NavMenu from "../../components/NavMenu";
 import UploadZone from "../../components/UploadZone";
@@ -7,133 +8,332 @@ import UploadErrorBoundary from "../../components/UploadErrorBoundary";
 import InvoiceList from "../../components/InvoiceList";
 import { reportError } from "../../lib/observability/reportError";
 
-/**
- * Deterministic failure recovery for the invoices page.
-
- * Invariants:
- *  1. Every optimistic invoice has a stable, unique client-key.
- *     Consecutive uploads of the same payload are never deduped away.
- *  2. A record is either pending or settled (committed or rolled back).
- *     There is no intermediate state that can be observed by the UI.
- *  3. Retrying a failed upload must not duplicate a committed record.
- *  4. Concurrent retries for the same record are coalesced into a single
- *     in-flight request.
- *  5. Failures are observable (logged with correlation id) and user-visible
- *     without exposing sensitive data.
- */
+/** Channel name used for multi-tab optimistic invoice synchronization */
+export const INVOICES_SYNC_CHANNEL = "liquifact-invoices-sync";
 
 /**
- * Failure recovery invariants for the invoices page:
+ * Normalizes an invoice object to ensure contract conformance.
+ * Enforces field types, defaults missing attributes, and guarantees
+ * a non-empty unique identifier without mutating input.
  *
- * 1. Optimistic entries are keyed by a stable client-generated id so a
- *    retry of the same upload updates the existing row instead of
- *    creating a duplicate. This makes retries idempotent.
- * 2. Failed uploads are retained in state with an error message so the
- *    user can retry without losing the in-memory record or the file
- *    selection. No silent drops.
- * 3. Recovery is deterministic: the same input always produces the same
- *    state transition (pending -> success | pending -> failed -> pending).
- * 4. Error messages are sanitized before being stored or rendered so that
- *    sensitive details from failed requests are not leaked to the UI.
+ * @param {unknown} invoice - The raw invoice payload
+ * @param {number} [fallbackSequence=0] - Fallback sequence number for tie-breaking
+ * @returns {object | null} The normalized invoice, or null if input is fundamentally invalid
  */
-
-const FALLBACK_ERROR = "Upload failed. Please try again.";
-
-const generateId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
+export function normalizeInvoice(invoice, fallbackSequence = 0) {
+  if (!invoice || typeof invoice !== "object") {
+    return null;
   }
-  return `inv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-};
 
-export const sanitizeErrorMessage = (raw) => {
-  if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    if (trimmed.length > 0 && trimmed.length <= 200) {
-      return trimmed;
-    }
-  }
-  return FALLBACK_ERROR;
-};
+  const rawId = typeof invoice.id === "string" ? invoice.id.trim() : "";
+  const id =
+    rawId ||
+    `inv-opt-${Date.now()}-${fallbackSequence}-${Math.random().toString(36).slice(2, 7)}`;
 
-/**
- * State invariants for the invoices page optimistic list.
- *
- * 1. The optimistic list is an append-only log of uploads for this mounted page.
- *    Entries are never reordered or mutated in place; new entries are prepended.
- * 2. Every entry has a stable, unique identity. Duplicate uploads of the
- *    same invoice must not create duplicate entries or corrupt the list.
- * 3. Only valid invoice objects (non-null, object, with a non-empty id)
- *    are accepted. Invalid input is rejected with a user-visible error and
- *    no state mutation.
- * 4. Repeated or concurrent invocations of the upload handler must be
- *    idempotent: the same invoice id is only accepted once.
- * 5. The list is bounded to a maximum size to avoid unbounded growth.
- */
+  const issuer =
+    typeof invoice.issuer === "string" && invoice.issuer.trim()
+      ? invoice.issuer.trim()
+      : "Unknown Issuer";
 
-const MAX_OPTIMISTIC_INVOICES = 200;
+  const amount =
+    typeof invoice.amount === "string" || typeof invoice.amount === "number"
+      ? String(invoice.amount)
+      : "Pending";
 
-function isValidInvoice(invoice) {
-  if (invoice === null || typeof invoice !== "object" || Array.isArray(invoice)) {
-    return false;
-  }
-  const { id } = invoice;
-  if (typeof id === "string") {
-    return id.trim().length > 0;
-  }
-  if (typeof id === "number") {
-    return Number.isFinite(id);
-  }
-  return false;
+  const currency =
+    typeof invoice.currency === "string" && invoice.currency.trim()
+      ? invoice.currency.trim()
+      : "USD";
+
+  const dueDate =
+    typeof invoice.dueDate === "string" && invoice.dueDate.trim()
+      ? invoice.dueDate.trim()
+      : "Pending";
+
+  const yieldValue =
+    typeof invoice.yield === "string" && invoice.yield.trim()
+      ? invoice.yield.trim()
+      : "Pending";
+
+  const status =
+    typeof invoice.status === "string" && invoice.status.trim()
+      ? invoice.status.trim()
+      : "Pending tokenization";
+
+  const timestamp =
+    typeof invoice._timestamp === "number" && !Number.isNaN(invoice._timestamp)
+      ? invoice._timestamp
+      : Date.now();
+
+  return {
+    ...invoice,
+    id,
+    issuer,
+    amount,
+    currency,
+    dueDate,
+    yield: yieldValue,
+    status,
+    _timestamp: timestamp,
+  };
 }
 
-function normalizeId(id) {
-  return typeof id === "string" ? id.trim() : String(id);
+/**
+ * Merges an incoming invoice into the current list deterministically.
+ *
+ * Invariants enforced:
+ * 1. State array never contains duplicate IDs.
+ * 2. If an invoice with the same ID exists:
+ *    - Updates in-place with latest attributes if incoming is newer or equal in timestamp.
+ *    - Discards out-of-order stale updates (incoming._timestamp < existing._timestamp).
+ *    - Returns existing array identity if incoming is an identical no-op.
+ * 3. If the invoice ID is new, prepends it to the beginning of the list.
+ *
+ * @param {Array<object>} currentInvoices - Existing optimistic invoices
+ * @param {object} incomingInvoice - Normalized invoice to merge
+ * @returns {Array<object>} New array of invoices, or existing if unmodified
+ */
+export function deduplicateAndMergeInvoices(currentInvoices, incomingInvoice) {
+  if (!incomingInvoice || typeof incomingInvoice !== "object" || !incomingInvoice.id) {
+    return currentInvoices;
+  }
+
+  const existingIndex = currentInvoices.findIndex((inv) => inv?.id === incomingInvoice.id);
+
+  if (existingIndex === -1) {
+    // New invoice: prepend to maintain latest-first order
+    return [incomingInvoice, ...currentInvoices];
+  }
+
+  const existing = currentInvoices[existingIndex];
+
+  // Concurrency guard: reject out-of-order stale updates
+  if (
+    typeof existing?._timestamp === "number" &&
+    typeof incomingInvoice._timestamp === "number" &&
+    incomingInvoice._timestamp < existing._timestamp
+  ) {
+    return currentInvoices;
+  }
+
+  // Idempotency check: if all public fields are equal, avoid unnecessary array allocation
+  if (
+    existing.issuer === incomingInvoice.issuer &&
+    existing.amount === incomingInvoice.amount &&
+    existing.currency === incomingInvoice.currency &&
+    existing.dueDate === incomingInvoice.dueDate &&
+    existing.yield === incomingInvoice.yield &&
+    existing.status === incomingInvoice.status
+  ) {
+    return currentInvoices;
+  }
+
+  // Update in place preserving stable position
+  const next = [...currentInvoices];
+  next[existingIndex] = {
+    ...existing,
+    ...incomingInvoice,
+    _timestamp: incomingInvoice._timestamp || Date.now(),
+  };
+  return next;
 }
 
-export default function InvoicesPage() {
-  const [optimisticInvoices, setOptimisticInvoices] = useState([]);
-  const [invoiceError, setInvoiceError] = useState(null);
-  // Ref mirrors the current id set so concurrent/repeated calls in the
-  // same tick cannot bypass the dedupe check before React re-renders.
-  const knownIdsRef = useRef(new Set());
+/**
+ * Normalizes and deduplicates initial invoice seeds.
+ *
+ * @param {Array<unknown>} initialInvoices
+ * @returns {Array<object>}
+ */
+function getInitialNormalizedInvoices(initialInvoices) {
+  if (!Array.isArray(initialInvoices)) {
+    return [];
+  }
+  const seenIds = new Set();
+  const normalizedList = [];
 
-  const handleUploadSuccess = useCallback((invoice) => {
-    if (!isValidInvoice(invoice)) {
-      setInvoiceError(
-        "The uploaded invoice did not include a valid identifier. Please try again."
-      );
-      return;
+  for (let i = 0; i < initialInvoices.length; i++) {
+    const normalized = normalizeInvoice(initialInvoices[i], i);
+    if (normalized && !seenIds.has(normalized.id)) {
+      seenIds.add(normalized.id);
+      normalizedList.push(normalized);
     }
+  }
 
-    const normalizedId = normalizeId(invoice.id);
-    if (knownIdsRef.current.has(normalizedId)) {
-      // Idempotent no-op: the same invoice is already tracked.
-      setInvoiceError(null);
-      return;
-    }
+  return normalizedList;
+}
 
-    knownIdsRef.current.add(normalizedId);
-    setInvoiceError(null);
-    setOptimisticInvoices((current) => {
-      if (current.length >= MAX_OPTIMISTIC_INVOICES) {
-        return current;
+/**
+ * InvoicesPage
+ *
+ * Hardened invoices management page with:
+ * - Deterministic compatibility contracts across valid, invalid, and boundary inputs.
+ * - Concurrency hardening against rapid uploads, double-submissions, and out-of-order race conditions.
+ * - Optional cross-tab synchronization via BroadcastChannel.
+ * - Isolated error boundaries to prevent cascaded unrecoverable UI crashes.
+ *
+ * @param {object} [props]
+ * @param {Array<object>} [props.initialInvoices] - Initial optimistic invoices
+ * @param {Function} [props.loadInvoices] - Custom invoice loader forwarded to InvoiceList
+ * @param {Function} [props.onUploadSuccess] - Callback when an upload succeeds and is normalized
+ * @param {Function} [props.onUploadError] - Callback when an upload fails or payload is rejected
+ * @param {boolean} [props.enableCrossTabSync=true] - Toggle cross-tab synchronization
+ * @param {string} [props.className=""] - Optional wrapper CSS class
+ */
+export default function InvoicesPage({
+  initialInvoices = [],
+  loadInvoices,
+  onUploadSuccess,
+  onUploadError,
+  enableCrossTabSync = true,
+  className = "",
+  ...restProps
+} = {}) {
+  const [optimisticInvoices, setOptimisticInvoices] = useState(() =>
+    getInitialNormalizedInvoices(initialInvoices)
+  );
+
+  const isMountedRef = useRef(true);
+  const tabIdRef = useRef(
+    `tab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  );
+  const recentSubmissionsRef = useRef(new Map());
+  const channelRef = useRef(null);
+
+  // Sync initialInvoices if parent updates them
+  const initialInvoicesRef = useRef(initialInvoices);
+  useEffect(() => {
+    if (initialInvoices !== initialInvoicesRef.current) {
+      initialInvoicesRef.current = initialInvoices;
+      if (Array.isArray(initialInvoices)) {
+        setOptimisticInvoices(getInitialNormalizedInvoices(initialInvoices));
       }
-      return [invoice, ...current];
-    });
-  }, []);
+    }
+  }, [initialInvoices]);
+
+  // Cross-tab synchronization via BroadcastChannel
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    if (!enableCrossTabSync || typeof BroadcastChannel === "undefined") {
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
+
+    let channel = null;
+    try {
+      channel = new BroadcastChannel(INVOICES_SYNC_CHANNEL);
+      channelRef.current = channel;
+
+      channel.onmessage = (event) => {
+        if (!isMountedRef.current) return;
+        const data = event?.data;
+        if (!data || data.tabId === tabIdRef.current) return;
+
+        if (data.type === "INVOICE_ADDED" && data.invoice) {
+          const remoteNormalized = normalizeInvoice(data.invoice);
+          if (remoteNormalized) {
+            setOptimisticInvoices((current) =>
+              deduplicateAndMergeInvoices(current, remoteNormalized)
+            );
+          }
+        }
+      };
+    } catch {
+      channel = null;
+      channelRef.current = null;
+    }
+
+    return () => {
+      isMountedRef.current = false;
+      if (channel) {
+        try {
+          channel.close();
+        } catch {
+          // Gracefully ignore close errors
+        }
+        channelRef.current = null;
+      }
+    };
+  }, [enableCrossTabSync]);
+
+  const handleUploadSuccess = useCallback(
+    (rawInvoice) => {
+      if (!isMountedRef.current) return;
+
+      const normalized = normalizeInvoice(rawInvoice);
+      if (!normalized) {
+        reportError(new Error("Invalid invoice payload provided to handleUploadSuccess"), {
+          component: "InvoicesPage",
+          action: "handleUploadSuccess",
+          type: typeof rawInvoice,
+        });
+        if (typeof onUploadError === "function") {
+          onUploadError(new Error("Invalid invoice payload provided"));
+        }
+        return;
+      }
+
+      // Concurrency guard: debounce rapid identical triggers within window (e.g. 300ms)
+      const now = Date.now();
+      const lastSeen = recentSubmissionsRef.current.get(normalized.id);
+      if (lastSeen && now - lastSeen < 300) {
+        return;
+      }
+      recentSubmissionsRef.current.set(normalized.id, now);
+
+      // Clean up old entries from the debounce map
+      if (recentSubmissionsRef.current.size > 100) {
+        for (const [id, ts] of recentSubmissionsRef.current.entries()) {
+          if (now - ts > 10000) recentSubmissionsRef.current.delete(id);
+        }
+      }
+
+      // Deterministic state update
+      setOptimisticInvoices((current) => deduplicateAndMergeInvoices(current, normalized));
+
+      // Broadcast across tabs if enabled
+      if (enableCrossTabSync && channelRef.current) {
+        try {
+          channelRef.current.postMessage({
+            type: "INVOICE_ADDED",
+            tabId: tabIdRef.current,
+            invoice: normalized,
+            timestamp: now,
+          });
+        } catch {
+          // Gracefully ignore BroadcastChannel post errors
+        }
+      }
+
+      // Notify caller if callback provided
+      if (typeof onUploadSuccess === "function") {
+        try {
+          onUploadSuccess(normalized);
+        } catch (callbackErr) {
+          reportError(callbackErr, {
+            component: "InvoicesPage",
+            action: "onUploadSuccessCallback",
+          });
+        }
+      }
+    },
+    [enableCrossTabSync, onUploadError, onUploadSuccess]
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className={`min-h-screen bg-slate-950 text-slate-50 ${className}`.trim()} {...restProps}>
       <NavMenu />
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm$px-6 lg:px-8">
         <div className="space-y-2 mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-slate-100 sm:text-4xl">
-            {copy.invoices.title || "Invoices"}
+            {copy?.invoices?.title || "Invoices"}
           </h1>
           <p className="text-lg text-slate-400">
-            {copy.invoices.description || "Upload and tokenize your commercial invoices."}
+            {copy?.invoices?.description ||
+              copy?.invoices?.subtext ||
+              "Upload and tokenize your commercial invoices."}
           </p>
         </div>
 
@@ -157,14 +357,17 @@ export default function InvoicesPage() {
             ) : null}
           </div>
           <div className="lg:col-span-2">
-            <InvoiceList
-              optimisticInvoices={optimisticInvoices}
-              onRetry={handleRetry}
-              onDismiss={handleDismiss}
-            />
+            <UploadErrorBoundary>
+              <InvoiceList
+                loadInvoices={loadInvoices}
+                optimisticInvoices={optimisticInvoices}
+              />
+            </UploadErrorBoundary>
           </div>
         </div>
       </main>
     </div>
   );
 }
+
+export { InvoicesPage };

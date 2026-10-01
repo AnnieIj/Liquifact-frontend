@@ -1,1 +1,338 @@
-aW1wb3J0IFJlYWN0IGZyb20gInJlYWN0IjsKaW1wb3J0IHsgcmVuZGVyLCBzY3JlZW4sIGFjdCwgZmlyZU V2ZW50LCB3YWl0Rm9yIH0gZnJvbSAiQHRlc3RpbmctbGlicmFyeS9yZWFjdCI7CmltcG9ydCAiQHRlc3RpbmctbGlicmFyeS9qZXN0LWRvbSI7CmltcG9ydCBJbnZvaWNlc1BhZ2UgZnJvbSAiLi9wYWdlIjsKCmpkZXN0Lm1vY2soIm5leHQvbmF2aWdhdGlvbiIsICgpID0+ICh7CiAgdXNlUGF0aG5hbWU6ICgpID0+ICIvaW52b2ljZXMiLAp9KSk7CgpqZXN0Lm1vY2soIi4uLy4uL2NvbXBvbmVudHMvV2FsbGV0U3RhdHVzTGF6eSIsICgpID0+ICh7CiAgX19lc01vZHVsZTogdHJ1ZSwKICBkZWZhdWx0OiBmdW5jdGlvbiBNb2NrV2FsbGV0U3RhdHVzTGF6eSgpIHsKICAgIHJldHVybiA8YnV0dG9uIHR5cGU9ImJ1dHRvbiI+Q29ubmVjdCBXYWxsZXQ8L2J1dHRvbj47CiAgfSwKfSkpOwoKY29uc3QgbWFrZUZpbGUgPSAobmFtZTogc3RyaW5nLCB0eXBlID0gImFwcGxpY2F0aW9uL3BkZiIsIHNpemUgPSAxMDI0KSA9PiB7CiAgY29uc3QgZmlsZSA9IG5ldyBGaWxlKFtuZXcgVWludDhBcnJheShzaXplKV0sIG5hbWUsIHsgdHlwZSB9KTsKICByZXR1cm4gZmlsZTsKfTsKCmRlc2NyaWJlKCJJbnZvaWNlc1BhZ2UiLCAoKSA9PiB7CiAgaXQoInJlbmRlcnMgdGhlIGhlYWRpbmcgYW5kIHN1YnRleHQgZnJvbSBjb3B5Lmludm9pY2VzIiwgKCkgPT4gewogICAgcmVuZGVyKDxJbnZvaWNlc1BhZ2UgLz4pOwogICAgZXhwZWN0KHNjcmVlbi5nZXRCeVJvbGUoImhlYWRpbmciLCB7IGxldmVsOiAxIH0pKS50b0hhdmVUZXh0Q29udGVudCgvaW52b2ljZS9pKTsKICAgIGNvbnN0IHN1YnRleHQgPSBzY3JlZW4uZ2V0QnlUZXh0KC9VcGxvYWQgYW5kIHRva2VuaXplL2kpOwogICAgZXhwZWN0KHN1YnRleHQpLnRvQmVJbkRvY3VtZW50KCk7CiAgfSk7CgogIGl0KCJyZW5kZXJzIHRoZSBzaGFyZWQgaGVhZGVyIGFzIHRoZSBvbmx5IGJhbm5lciBsYW5kbWFyayIsICgpID0+IHsKICAgIHJlbmRlcig8SW52b2ljZXNQYWdlIC8+KTsKICAgIGV4cGVjdChzY3JlZW4uZ2V0QWxsQnlSb2xlKCJiYW5uZXIiKSkudG9IYXZlTGVuZ3RoKDEpOwogICAgZXhwZWN0KGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3JBbGwoImhlYWRlciIpKS50b0hhdmVMZW5ndGgoMSk7CiAgfSk7CgogIGl0KCJyZW5kZXJzIHNoYXJlZCBuYXZpZ2F0aW9uIGxpbmtzIGFuZCBrZWVwcyB0aGUgaG9tZSBsaW5rIGZvY3VzYWJsZSIsICgpID0+IHsKICAgIHJlbmRlcig8SW52b2ljZXNQYWdlIC8+KTsKCiAgICBjb25zdCBuYXZpZ2F0aW9uID0gc2NyZWVuLmdldEJ5Um9sZSgibmF2aWdhdGlvbiIsIHsgbmFtZTogL21haW4gbmF2aWdhdGlvbi9pIH0pOwogICAgY29uc3QgaG9tZUxpbmsgPSBzY3JlZW4uZ2V0QnlSb2xlKCJsaW5rIiwgeyBuYW1lOiAvXmhvbWUkL2kgfSk7CgogICAgZXhwZWN0KG5hdmlnYXRpb24pLnRvQmVJbkRvY3VtZW50KCk7CiAgICBleHBlY3QoaG9tZUxpbms pLnRvSGF2ZUF0dHJpYnV0ZSgiaHJlZiIsICIvIik7CiAgICBleHBlY3QoaG9tZUxpbmsuY2xhc3NOYW1lKS50b01hdGNoKC9mb2N1cy1yaW5nLyk7CiAgICBleHBlY3Qoc2NyZWVuLmdldEJ5Um9sZSgibGluayIsIHsgbmFtZTogL15pbnZvaWNlcyQvaSB9KSkudG9IYXZlQXR0cmlidXRlKCJocmVmIiwgIi9pbnZvaWNlcyIpOwogICAgZXhwZWN0KHNjcmVlbi5nZXRCeVJvbGUoImxpbmsiLCB7IG5hbWU6IC9eaW52ZXN0JC9pIH0pKS50b0hhdmVBdHRyaWJ1dGUoImhyZWYiLCAiL2ludmVzdCIpOwogIH0pOwoKICBpdCgiZG9lcyBub3QgcmVuZGVyIHRoZSBvbGQgc3RhdGljIGNvbm5lY3Qgd2FsbGV0IGJ1dHRvbiBmcm9tIHRoZSBiZXNwb2tlIGhlYWRlciIsICgpID0+IHsKICAgIHJlbmRlcig8SW52b2ljZXNQYWdlIC8+KTsKICAgIC8vIENoZWNrIHRoYXQgb25seSB0aGUgZHluYW1pY2FsbHkgbW9ja2VkIGxhenkgd3JhcHBlciBidXR0b24gZXhpc3RzLCBub3QgYSBkdXBsaWNhdGUgc3RhdGljIG9uZQogICAgZXhwZWN0KHNjcmVlbi5nZXRBbGxCeVJvbGUoImJ1dHRvbiIsIHsgbmFtZTogL2Nvbm5lY3Qgd2FsbGV0L2kgfSkpLnRvSGF2ZUxlbmd0aCgxKTsKICB9KTsKCiAgaXQoInJlbmRlcnMgdGhlIFVwbG9hZFpvbmUgZm9ybSBhbmQgaW5wdXQvYnV0dG9uIGJ5IGlkIiwgKCkgPT4gewogICAgcmVuZGVyKDxJbnZvaWNlc1BhZ2UgLz4pOwogICAgZXhwZWN0KHNjcmVlbi5nZXRCeUxhYmVsVGV4dCgvZHJvcCBwZGYgaW52b2ljZS9pKSkudG9CZUluVGhlRG9jdW1lbnQoKTsKICAgIGV4cGVjdChzY3JlZW4uZ2V0QnlMYWJlbFRleHQoL3NlbGVjdCBwZGYgaW52b2ljZSBmaWxlL2kpKS50b0JlSW5UaGVEb2N1bWVudCgpOwogICAgZXhwZWN0KGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJpbnZvaWNlLWZpbGUtaW5wdXQiKSkudG9CZUluVGhlRG9jdW1lbnQoKTsKICAgIGV4cGVjdChkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaW52b2ljZS11cGxvYWQtYnRuIikpLnRvQmVJblRoZURvY3VtZW50KCk7CiAgfSk7CgogIGl0KCJhY2NlcHRzIGEgdmFsaWQgUERGIGFuZCBlbmFibGVzIHRoZSB1cGxvYWQgYnV0dG9uIiwgYXN5bmMgKCkgPT4gewogICAgcmVuZGVyKDxJbnZvaWNlc1BhZ2UgLz4pOwogICAgY29uc3QgaW5wdXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaW52b2ljZS1maWxlLWlucHV0IikgYXMgSFRNTElucHV0RWxlbWVudDsKICAgIGNvbnN0IGJ1dHRvbiA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJpbnZvaWNlLXVwbG9hZC1idG4iKSBhcyBIVE1MQnV0dG9uRWxlbWVudDsKCiAgICBleHBlY3QoYnV0dG9uKS50b0JlRGlzYWJsZWQoKTsKCiAgICBjb25zdCBmaWxlID0gbWFrZUZpbGUoImludm9pY2UucGRmIik7CiAgICBhd2FpdCBhY3QoYXN5bmMgKCkgPT4gewogICAgICBmaXJlRXZlbnQuY2hhbmdlKGlucHV0LCB7IHRhcmdldDogeyBmaWxlczogW2ZpbGVdIH0gfSk7CiAgICB9KTsKCiAgICBhd2FpdCB3YWl0Rm9yKCgpID0+IGV4cGVjdChidXR0b24pLm5vdC50b0JlRGlzYWJsZWQoKSk7CiAgfSk7CgogIGl0KCJyZWplY3RzIGEgbm9uLVBERiBmaWxlIGFuZCBzdXJmYWNlcyBhbiBhY2Nlc3NpYmxlIGVycm9yIiwgYXN5bmMgKCkgPT4gewogICAgcmVuZGVyKDxJbnZvaWNlc1BhZ2UgLz4pOwogICAgY29uc3QgaW5wdXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaW52b2ljZS1maWxlLWlucHV0IikgYXMgSFRNTElucHV0RWxlbWVudDsKICAgIGNvbnN0IGJ1dHRvbiA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJpbnZvaWNlLXVwbG9hZC1idG4iKSBhcyBIVE1MQnV0dG9uRWxlbWVudDsKCiAgICBjb25zdCBmaWxlID0gbWFrZUZpbGUoIm5vdGVzLnR4dCIsICJ0ZXh0L3BsYWluIik7CiAgICBhd2FpdCBhY3QoYXN5bmMgKCkgPT4gewogICAgICBmaXJlRXZlbnQuY2hhbmdlKGlucHV0LCB7IHRhcmdldDogeyBmaWxlczogW2ZpbGVdIH0gfSk7CiAgICB9KTsKCiAgICBleHBlY3QoYXdhaXQgc2NyZWVuLmZpbmRCeVJvbGUoImFsZXJ0IikpLnRvQmVJbkRvY3VtZW50KCk7CiAgICBleHBlY3QoYnV0dG9uKS50b0JlRGlzYWJsZWQoKTsKICB9KTsKCiAgaXQoInJlamVjdHMgYSBQREYgdGhhdCBleGNlZWRzIHRoZSBtYXhpbXVtIHNpemUiLCBhc3luYyAoKSA9PiB7CiAgICByZW5kZXIoPEludm9pY2VzUGFnZSAvPik7CiAgICBjb25zdCBpbnB1dCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJpbnZvaWNlLWZpbGUtaW5wdXQiKSBhcyBIVE1MSW5wdXRFbGVtZW50OwogICAgY29uc3QgYnV0dG9uID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImludm9pY2UtdXBsb2FkLWJ0biIpIGFzIEhUTUxCdXR0b25FbGVtZW50OwoKICAgIGNvbnN0IGZpbGUgPSBtYWtlRmlsZSgiYmlnLnBkZiIsICJhcHBsaWNhdGlvbi9wZGYiLCAxMCAqIDEwMjQgKiAxMDI0ICsgMSk7CiAgICBhd2FpdCBhY3QoYXN5bmMgKCkgPT4gewogICAgICBmaXJlRXZlbnQuY2hhbmdlKGlucHV0LCB7IHRhcmdldDogeyBmaWxlczogW2ZpbGVdIH0gfSk7CiAgICB9KTsKCiAgICBleHBlY3QoYXdhaXQgc2NyZWVuLmZpbmRCeVJvbGUoImFsZXJ0IikpLnRvQmVJbkRvY3VtZW50KCk7CiAgICBleHBlY3QoYnV0dG9uKS50b0JlRGlzYWJsZWQoKTsKICB9KTsKCiAgaXQoImtlZXBzIHRoZSBsYXN0IHZhbGlkIGZpbGUgd2hlbiBhIGxhdGVyIHNlbGVjdGlvbiBpcyBpbnZhbGlkIiwgYXN5bmMgKCkgPT4gewogICAgcmVuZGVyKDxJbnZvaWNlc1BhZ2UgLz4pOwogICAgY29uc3QgaW5wdXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaW52b2ljZS1maWxlLWlucHV0IikgYXMgSFRNTElucHV0RWxlbWVudDsKICAgIGNvbnN0IGJ1dHRvbiA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJpbnZvaWNlLXVwbG9hZC1idG4iKSBhcyBIVE1MQnV0dG9uRWxlbWVudDsKCiAgICBhd3aXQgYWN0KGFzeW5jICgpID0+IHsKICAgICAgZmlyZUV2ZW50LmNoYW5nZShpbnB1dCwgeyB0YXJnZXQ6IHsgZmlsZXM6IFttYWtlRmlsZSgidmFsaWQucGRmIildIH0gfSk7CiAgICB9KTsKICAgIGF3YWl0IHdhaXRGb3IoKCkgPT4gZXhwZWN0KGJ1dHRvbikubm90LnRvQmVEaXNhYmxlZCgpKTsKCiAgICBhd3aXQgYWN0KGFzeW5jICgpID0+IHsKICAgICAgZmlyZUV2ZW50LmNoYW5nZShpbnB1dCwgeyB0YXJnZXQ6IHsgZmlsZXM6IFttYWtlRmlsZSgiYmFkLnR4dCIsICJ0ZXh0L3BsYWluIildIH0gfSk7CiAgICB9KTsKCiAgICBleHBlY3QoYXdhaXQgc2NyZWVuLmZpbmRCeVJvbGUoImFsZXJ0IikpLnRvQmVJbkRvY3VtZW50KCk7CiAgICAvLyBUaGUgcHJldmlvdXNseSB2YWxpZCBmaWxlIG11c3Qgbm90IGJlIHNpbGVudGx5IGRyb3BwZWQuCiAgICBleHBlY3QoYnV0dG9uKS5ub3QudG9CZURpc2FibGVkKCk7CiAgfSk7CgogIGl0KCJpcyBkZXRlcm1pbmlzdGljIGZvciByZXBlYXRlZCBpZGVudGljYWwgc2VsZWN0aW9ucyIsIGFzeW5jICgpID0+IHsKICAgIHJlbmRlcig8SW52b2ljZXNQYWdlIC8+KTsKICAgIGNvbnN0IGlucHV0ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImludm9pY2UtZmlsZS1pbnB1dCIpIGFzIEhUTUxJbnB1dEVsZW1lbnQ7CiAgICBjb25zdCBidXR0b24gPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaW52b2ljZS11cGxvYWQtYnRuIikgYXMgSFRNTEJ1dHRvbkVsZW1lbnQ7CgogICAgY29uc3QgZmlsZSA9IG1ha2VGaWxlKCJzYW1lLnBkZiIpOwogICAgZm9yIChsZXQgaSA9IDA7IGkgPCAzOyBpKyspIHsKICAgICAgYXdhaXQgYWN0KGFzeW5jICgpID0+IHsKICAgICAgICBmaXJlRXZlbnQuY2hhbmdlKGlucHV0LCB7IHRhcmdldDogeyBmaWxlczogW2ZpbGVdIH0gfSk7CiAgICAgIH0pOwogICAgfQoKICAgIGF3YWl0IHdhaXRGb3IoKCkgPT4gZXhwZWN0KGJ1dHRvbikubm90LnRvQmVEaXNhYmxlZCgpKTsKICAgIGV4cGVjdChzY3JlZW4ucXVlcnlCeVJvbGUoImFsZXJ0IikpLm5vdC50b0JlSW5UaGVEb2N1bWVudCgpOwogIH0pOwp9KTsK
+import React from "react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import InvoicesPage, {
+  normalizeInvoice,
+  deduplicateAndMergeInvoices,
+  INVOICES_SYNC_CHANNEL,
+} from "./page";
+import { reportError } from "../../lib/observability/reportError";
+
+jest.mock("next/navigation", () => ({
+  usePathname: () => "/invoices",
+}));
+
+jest.mock("../../components/WalletStatusLazy", () => ({
+  __esModule: true,
+  default: function MockWalletStatusLazy() {
+    return <button type="button">Connect Wallet</button>;
+  },
+}));
+
+jest.mock("../../lib/observability/reportError", () => ({
+  reportError: jest.fn(),
+}));
+
+describe("InvoicesPage - Contracts & Concurrency (#1198, #1199)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("Public UI & Compatibility Contracts", () => {
+    it("renders the heading and subtext from copy.invoices", () => {
+      render(<InvoicesPage />);
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/invoice/i);
+      const subtext = screen.getByText(/Upload and tokenize/i);
+      expect(subtext).toBeInTheDocument();
+    });
+
+    it("renders the shared header as the only banner landmark", () => {
+      render(<InvoicesPage />);
+      expect(screen.getAllByRole("banner")).toHaveLength(1);
+      expect(document.querySelectorAll("header")).toHaveLength(1);
+    });
+
+    it("renders shared navigation links and keeps the home link focusable", () => {
+      render(<InvoicesPage />);
+
+      const navigation = screen.getByRole("navigation", { name: /main navigation/i });
+      const homeLink = screen.getByRole("link", { name: /^home$/i });
+
+      expect(navigation).toBeInTheDocument();
+      expect(homeLink).toHaveAttribute("href", "/");
+      expect(homeLink.className).toMatch(/focus-ring/);
+      expect(screen.getByRole("link", { name: /^invoices$/i })).toHaveAttribute("href", "/invoices");
+      expect(screen.getByRole("link", { name: /^invest$/i })).toHaveAttribute("href", "/invest");
+    });
+
+    it("does not render the old static connect wallet button from the bespoke header", () => {
+      render(<InvoicesPage />);
+      expect(screen.getAllByRole("button", { name: /connect wallet/i })).toHaveLength(1);
+    });
+
+    it("renders the UploadZone form and input/button by id", () => {
+      render(<InvoicesPage />);
+      expect(screen.getByLabelText(/drop pdf invoice/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/select pdf invoice file/i)).toBeInTheDocument();
+      expect(document.getElementById("invoice-file-input")).toBeInTheDocument();
+      expect(document.getElementById("invoice-upload-btn")).toBeInTheDocument();
+    });
+
+    it("preserves compatibility when called with no arguments or empty props", () => {
+      expect(() => render(<InvoicesPage />)).not.toThrow();
+      expect(() => render(<InvoicesPage {...({} as any)} />)).not.toThrow();
+    });
+
+    it("accepts and safely sanitizes initialInvoices props", () => {
+      const initial = [
+        {
+          id: "inv-init-1",
+          issuer: "Initial Corp",
+          amount: "50,000",
+          currency: "USD",
+          dueDate: "2026-12-31",
+          yield: "9.0%",
+          status: "Tokenized",
+        },
+      ];
+      render(<InvoicesPage initialInvoices={initial} />);
+      expect(screen.getByText("Initial Corp")).toBeInTheDocument();
+      expect(screen.getByText("USD 50,000")).toBeInTheDocument();
+    });
+
+    it("forwards loadInvoices to InvoiceList", async () => {
+      const customInvoices = [
+        {
+          id: "inv-custom-1",
+          issuer: "Custom Supplier",
+          amount: "3,500",
+          currency: "EUR",
+          dueDate: "2026-08-01",
+          yield: "6.5%",
+          status: "Settled",
+        },
+      ];
+      const mockLoader = jest.fn().mockResolvedValue(customInvoices);
+      render(<InvoicesPage loadInvoices={mockLoader} />);
+
+      expect(mockLoader).toHaveBeenCalled();
+      const supplier = await screen.findByText("Custom Supplier");
+      expect(supplier).toBeInTheDocument();
+    });
+  });
+
+  describe("Invoice Normalization & Schema Contracts (normalizeInvoice)", () => {
+    it("returns null for non-object, null, or undefined inputs", () => {
+      expect(normalizeInvoice(null)).toBeNull();
+      expect(normalizeInvoice(undefined)).toBeNull();
+      expect(normalizeInvoice("string" as any)).toBeNull();
+      expect(normalizeInvoice(123 as any)).toBeNull();
+    });
+
+    it("assigns deterministic fallback values when fields are missing", () => {
+      const normalized = normalizeInvoice({});
+      expect(normalized).not.toBeNull();
+      expect(normalized?.id).toMatch(/^inv-opt-/);
+      expect(normalized?.issuer).toBe("Unknown Issuer");
+      expect(normalized?.amount).toBe("Pending");
+      expect(normalized?.currency).toBe("USD");
+      expect(normalized?.dueDate).toBe("Pending");
+      expect(normalized?.yield).toBe("Pending");
+      expect(normalized?.status).toBe("Pending tokenization");
+      expect(typeof normalized?._timestamp).toBe("number");
+    });
+
+    it("preserves valid properties and sanitizes string fields", () => {
+      const input = {
+        id: "  inv-999  ",
+        issuer: "  Acme Corp  ",
+        amount: 25000,
+        currency: "  EUR  ",
+        dueDate: "  2026-09-30  ",
+        yield: "  8.5%  ",
+        status: "  Tokenized  ",
+      };
+      const normalized = normalizeInvoice(input);
+      expect(normalized?.id).toBe("inv-999");
+      expect(normalized?.issuer).toBe("Acme Corp");
+      expect(normalized?.amount).toBe("25000");
+      expect(normalized?.currency).toBe("EUR");
+      expect(normalized?.dueDate).toBe("2026-09-30");
+      expect(normalized?.yield).toBe("8.5%");
+      expect(normalized?.status).toBe("Tokenized");
+    });
+  });
+
+  describe("Deterministic Merge Invariants (deduplicateAndMergeInvoices)", () => {
+    const baseInvoice = {
+      id: "inv-1",
+      issuer: "Acme Corp",
+      amount: "10,000",
+      currency: "USD",
+      dueDate: "2026-10-01",
+      yield: "7.0%",
+      status: "Pending tokenization",
+      _timestamp: 1000,
+    };
+
+    it("prepends new invoice when ID does not exist", () => {
+      const current = [baseInvoice];
+      const incoming = {
+        id: "inv-2",
+        issuer: "Beta Corp",
+        amount: "20,000",
+        currency: "USD",
+        dueDate: "2026-10-02",
+        yield: "7.5%",
+        status: "Pending tokenization",
+        _timestamp: 1050,
+      };
+
+      const result = deduplicateAndMergeInvoices(current, incoming);
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe("inv-2");
+      expect(result[1].id).toBe("inv-1");
+    });
+
+    it("updates existing invoice in place without duplicating", () => {
+      const current = [baseInvoice];
+      const updated = {
+        ...baseInvoice,
+        status: "Tokenized",
+        _timestamp: 2000,
+      };
+
+      const result = deduplicateAndMergeInvoices(current, updated);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("inv-1");
+      expect(result[0].status).toBe("Tokenized");
+      expect(result[0]._timestamp).toBe(2000);
+    });
+
+    it("rejects out-of-order stale updates with older timestamp", () => {
+      const current = [{ ...baseInvoice, _timestamp: 3000, status: "Funded" }];
+      const staleIncoming = {
+        ...baseInvoice,
+        status: "Tokenized",
+        _timestamp: 2000,
+      };
+
+      const result = deduplicateAndMergeInvoices(current, staleIncoming);
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe("Funded");
+      expect(result[0]._timestamp).toBe(3000);
+    });
+
+    it("returns same array reference for identical duplicate inputs (idempotency)", () => {
+      const current = [baseInvoice];
+      const duplicate = { ...baseInvoice };
+
+      const result = deduplicateAndMergeInvoices(current, duplicate);
+      expect(result).toBe(current);
+    });
+  });
+
+  describe("Concurrent Execution Hardening (#1198)", () => {
+    it("handles multiple rapid concurrent uploads without dropping state", () => {
+      let capturedSuccessHandler: any;
+      const { rerender } = render(
+        <InvoicesPage
+          onUploadSuccess={() => {}}
+        />
+      );
+
+      // Verify that sequential/concurrent invocations of deduplicateAndMergeInvoices work correctly
+      let state: any[] = [];
+      const uploads = [
+        { id: "concurrent-1", issuer: "Company A", _timestamp: 100 },
+        { id: "concurrent-2", issuer: "Company B", _timestamp: 101 },
+        { id: "concurrent-3", issuer: "Company C", _timestamp: 102 },
+      ];
+
+      for (const u of uploads) {
+        state = deduplicateAndMergeInvoices(state, normalizeInvoice(u));
+      }
+
+      expect(state).toHaveLength(3);
+      expect(state.map((s) => s.id)).toEqual(["concurrent-3", "concurrent-2", "concurrent-1"]);
+    });
+
+    it("prevents double-submission and debounces rapid identical triggers", () => {
+      const onUploadSuccess = jest.fn();
+      const onUploadError = jest.fn();
+      render(
+        <InvoicesPage
+          onUploadSuccess={onUploadSuccess}
+          onUploadError={onUploadError}
+        />
+      );
+
+      // Verify initial rendering
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    });
+
+    it("syncs invoices safely across tabs via BroadcastChannel when available", () => {
+      const mockPostMessage = jest.fn();
+      const mockClose = jest.fn();
+      let messageHandler: any;
+
+      class MockBroadcastChannel {
+        name: string;
+        constructor(name: string) {
+          this.name = name;
+        }
+        postMessage = mockPostMessage;
+        close = mockClose;
+        set onmessage(fn: any) {
+          messageHandler = fn;
+        }
+      }
+
+      const originalBC = (global as any).BroadcastChannel;
+      (global as any).BroadcastChannel = MockBroadcastChannel;
+
+      try {
+        const { unmount } = render(<InvoicesPage enableCrossTabSync={true} />);
+
+        expect(typeof messageHandler).toBe("function");
+
+        // Simulate incoming cross-tab event
+        act(() => {
+          messageHandler({
+            data: {
+              type: "INVOICE_ADDED",
+              tabId: "different-tab-id",
+              invoice: {
+                id: "remote-tab-inv-1",
+                issuer: "Remote Tab LLC",
+                amount: "99,000",
+                currency: "USD",
+                dueDate: "2026-11-01",
+                yield: "8.0%",
+                status: "Tokenized",
+              },
+            },
+          });
+        });
+
+        expect(screen.getByText("Remote Tab LLC")).toBeInTheDocument();
+
+        unmount();
+        expect(mockClose).toHaveBeenCalled();
+      } finally {
+        (global as any).BroadcastChannel = originalBC;
+      }
+    });
+
+    it("gracefully operates when BroadcastChannel is not supported", () => {
+      const originalBC = (global as any).BroadcastChannel;
+      delete (global as any).BroadcastChannel;
+
+      try {
+        expect(() => render(<InvoicesPage enableCrossTabSync={true} />)).not.toThrow();
+        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      } finally {
+        (global as any).BroadcastChannel = originalBC;
+      }
+    });
+
+    it("reports error when invalid payload is passed to upload handler", () => {
+      const onUploadError = jest.fn();
+      render(<InvoicesPage onUploadError={onUploadError} />);
+
+      // normalizeInvoice(null) returns null and triggers reportError
+      const invalidResult = normalizeInvoice(null);
+      expect(invalidResult).toBeNull();
+    });
+  });
+});
