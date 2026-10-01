@@ -33,6 +33,88 @@ import { INVALID_VALUE_FALLBACK, formatAmount, formatCurrency } from "@/lib/form
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+const MAX_DETAIL_ITEMS = 500;
+const MAX_ID_LENGTH = 256;
+const MAX_NAME_LENGTH = 256;
+const MAX_KIND_LENGTH = 64;
+const MAX_ISSUER_LENGTH = 256;
+
+/**
+ * Validation invariants for invoice detail items.
+ *
+ * A detail item is considered valid iff:
+ *   - it is a non-null object
+ *   - `id` is a non-empty string of length <= MAX_ID_LENGTH
+ *   - `name` is a non-empty string of length <= MAX_NAME_LENGTH
+ *   - `kind`, when present, is a string of length <= MAX_KIND_LENGTH
+ *   - `issuer`, when present, is a string of length <= MAX_ISSUER_LENGTH
+ *
+ * Duplicates are detected by `id`. The first occurrence wins; later
+ * duplicates are dropped so downstream selection/delete operations cannot
+ * act on ambiguous identities.
+ *
+ * @param {unknown} item
+ * @returns {boolean}
+ */
+export function isValidDetailItem(item) {
+  if (!item || typeof item !== "object") return false;
+  if (typeof item.id !== "string") return false;
+  const id = item.id.trim();
+  if (id.length === 0 || id.length > MAX_ID_LENGTH) return false;
+  if (typeof item.name !== "string") return false;
+  // eslint-disable-next-line no-unused-vars
+  const name = item.name.trim();
+  if (name.length === 0 || name.length > MAX_NAME_LENGTH) return false;
+  if (item.kind !== undefined && item.kind !== null) {
+    if (typeof item.kind !== "string" || item.kind.length > MAX_KIND_LENGTH) return false;
+  }
+  if (item.issuer !== undefined && item.issuer !== null) {
+    if (typeof item.issuer !== "string" || item.issuer.length > MAX_ISSUER_LENGTH) return false;
+  }
+  return true;
+}
+
+/**
+ * Normalize and validate a list of detail items.
+ * Returns `{ items, rejected }` where `rejected` is the count of dropped
+ * entries (invalid shape, out-of-bound fields, or duplicate ids).
+ *
+ * @param {unknown} rawItems
+ * @returns {{ items: Array<object>, rejected: number }}
+ */
+export function sanitizeDetailItems(rawItems) {
+  if (!Array.isArray(rawItems)) {
+    return { items: [], rejected: 0 };
+  }
+  const seen = new Set();
+  const items = [];
+  let rejected = 0;
+  for (const raw of rawItems) {
+    if (!isValidDetailItem(raw)) {
+      rejected += 1;
+      continue;
+    }
+    const id = raw.id.trim();
+    if (seen.has(id)) {
+      rejected += 1;
+      continue;
+    }
+    if (items.length >= MAX_DETAIL_ITEMS) {
+      rejected += 1;
+      continue;
+    }
+    seen.add(id);
+    items.push({
+      ...raw,
+      id,
+      name: raw.name.trim(),
+      kind: raw.kind == null ? raw.kind : raw.kind,
+      issuer: raw.issuer == null ? raw.issuer : raw.issuer,
+    });
+  }
+  return { items, rejected };
+}
+
 /**
  * Strip HTML-special characters from any value, converting it to a safe
  * display string. Returns an empty string for null / undefined.
@@ -104,6 +186,7 @@ export default function InvoiceDetailItems({
 
   const d = copy.investDetail;
 
+  // eslint-disable-next-line react/jsx-no-useless-fragment
   return (
     <>
       {/* ── Invoice fact sheet ─────────────────────────────────────────── */}
