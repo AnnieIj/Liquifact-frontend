@@ -78,7 +78,85 @@ import { useDensity } from "@/lib/hooks/useDensity";
 import { getInvoiceFieldValidator } from "@/lib/validation/invoice";
 import { copy } from "@/app/copy/en";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+/**
+ * Validation boundary for InvoiceDetailClient props.
+ * Ensures all props are of the expected type and format before rendering.
+ *
+ * @param {object} props - Component props
+ * @returns {object} - Validated props with fallback values for invalid inputs
+ */
+function validateInvoiceDetailClientProps(props) {
+  const {
+    labelIssuer,
+    labelAmount,
+    labelYield,
+    labelMaturity,
+    labelStatus,
+    labelReference,
+    issuer,
+    formattedAmount,
+    formattedYield,
+    dueDate,
+    referenceId,
+    statusPill,
+    summaryHeading,
+    rawIssuer,
+    rawAmount,
+    rawYield,
+    rawDueDate,
+    onSave,
+  } = props;
+
+  // Validate string props with fallback
+  const validateString = (value, fallback = "") => {
+    if (typeof value === "string" && value.length > 0) return value;
+    return fallback;
+  };
+
+  // Validate React node props (can be null, string, or React element)
+  const validateNode = (value, fallback = null) => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string" || typeof value === "object") return value;
+    return fallback;
+  };
+
+  // Validate optional raw values
+  const validateOptionalString = (value, fallback) => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "string") return value;
+    return fallback;
+  };
+
+  // Validate callback function
+  const validateCallback = (callback) => {
+    if (typeof callback === "function" || callback === null || callback === undefined) {
+      return callback;
+    }
+    return null;
+  };
+
+  return {
+    labelIssuer: validateString(labelIssuer, "Issuer"),
+    labelAmount: validateString(labelAmount, "Amount"),
+    labelYield: validateString(labelYield, "Yield"),
+    labelMaturity: validateString(labelMaturity, "Maturity"),
+    labelStatus: validateString(labelStatus, "Status"),
+    labelReference: validateString(labelReference, "Reference"),
+    issuer: validateString(issuer, ""),
+    formattedAmount: validateString(formattedAmount, ""),
+    formattedYield: validateString(formattedYield, ""),
+    dueDate: validateString(dueDate, ""),
+    referenceId: validateOptionalString(referenceId, null),
+    statusPill: validateNode(statusPill, null),
+    summaryHeading: validateString(summaryHeading, "Invoice Details"),
+    rawIssuer: validateOptionalString(rawIssuer, validateString(issuer, "")),
+    rawAmount: validateOptionalString(rawAmount, validateString(formattedAmount, "")),
+    rawYield: validateOptionalString(rawYield, validateString(formattedYield, "")),
+    rawDueDate: validateOptionalString(rawDueDate, validateString(dueDate, "")),
+    onSave: validateCallback(onSave),
+  };
+}
+
 /** @type {Record<string, {gap: string, padding: string}>} */
 const SPACING = {
   compact: { gap: "gap-2", padding: "p-4" },
@@ -119,13 +197,53 @@ function EditableRow({
   onSave,
   onAnnounce,
 }) {
+  // Validate props at component entry
+  const validatedField = useMemo(() => {
+    if (typeof field !== "string" || field.length === 0) {
+      return "unknown";
+    }
+    return field;
+  }, [field]);
+
+  const validatedLabel = useMemo(() => {
+    if (typeof label !== "string" || label.length === 0) {
+      return "Field";
+    }
+    return label;
+  }, [label]);
+
+  const validatedDisplayValue = useMemo(() => {
+    if (typeof displayValue !== "string") return "";
+    return displayValue;
+  }, [displayValue]);
+
+  const validatedRawValue = useMemo(() => {
+    if (typeof rawValue !== "string") return "";
+    return rawValue;
+  }, [rawValue]);
+
+  const validatedInputType = useMemo(() => {
+    const validTypes = ["text", "number", "date"];
+    if (validTypes.includes(inputType)) return inputType;
+    return "text";
+  }, [inputType]);
+
+  const validatedOnSave = useMemo(() => {
+    if (typeof onSave === "function") return onSave;
+    return () => {};
+  }, [onSave]);
+
+  const validatedOnAnnounce = useMemo(() => {
+    if (typeof onAnnounce === "function") return onAnnounce;
+    return () => {};
+  }, [onAnnounce]);
+
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(rawValue);
-  const [isSaving, setIsSaving] = useState(false);
-  const saveInFlightRef = useRef(false);
+  const [draft, setDraft] = useState(validatedRawValue);
+  const inputRef = useRef(null);
   const reactId = useId();
-  const inputElId = `inline-edit-${field}-${reactId}`;
-  const errorElId = `inline-edit-error-${field}-${reactId}`;
+  const inputElId = `inline-edit-${validatedField}-${reactId}`;
+  const errorElId = `inline-edit-error-${validatedField}-${reactId}`;
 
   // Resolve the live validator: caller-supplied wins, otherwise fall back to
   const inputRef = useRef(null);
@@ -133,8 +251,8 @@ function EditableRow({
   // function reference in a useMemo so the useMemo below is a pure
   // function of (draft, isEditing) and won't churn on every render.
   const effectiveValidator = useMemo(
-    () => (typeof validator === "function" ? validator : getInvoiceFieldValidator(field)),
-    [validator, field]
+    () => (typeof validator === "function" ? validator : getInvoiceFieldValidator(validatedField)),
+    [validator, validatedField]
   );
 
   // Live validation: derived on every keystroke. We deliberately stop
@@ -171,19 +289,16 @@ function EditableRow({
   }, [isEditing]);
 
   const handleEdit = () => {
-    // Invalidate any in-flight save from a previous edit session so a late
-    // completion cannot clobber the freshly opened draft.
-    activeSaveTokenRef.current = ++saveTokenCounter;
-    setDraft(rawValue);
+    setDraft(validatedRawValue);
     setIsEditing(true);
   };
 
   const handleCancel = useCallback(() => {
     if (saveInFlightRef.current) return;
     setIsEditing(false);
-    setDraft(rawValue);
-    onAnnounce(ie.announceCancelled);
-  }, [rawValue, onAnnounce]);
+    setDraft(validatedRawValue);
+    validatedOnAnnounce(ie.announceCancelled);
+  }, [validatedRawValue, validatedOnAnnounce]);
 
   const handleSave = useCallback(async () => {
     if (isInvalid) {
@@ -191,35 +306,13 @@ function EditableRow({
       // Enter keypress on a non-disabled text input could still reach here
       // if the browser fires a synthetic click. Announce without saving so
       // the user understands why nothing happened.
-      onAnnounce(`Save failed: ${error ?? ie.errorRequired.replace("{field}", label)}`);
+      validatedOnAnnounce(`Save failed: ${error ?? ie.errorRequired.replace("{field}", validatedLabel)}`);
       return;
     }
-
-    // Serialize saves per-row: a second Enter press while the first save is
-    // still in flight must not interleave and produce a stale value.
-    if (saveInFlightRef.current) return;
-    saveInFlightRef.current = true;
-    setIsSaving(true);
-
-    const previousDraft = rawValue;
-    try {
-      // `onSave` is optional. When absent we still commit locally so the
-      // view reflects the user's edit without requiring a parent callback.
-      await onSave?.(field, trimmedDraft);
-      setIsEditing(false);
-      onAnnounce(ie.announceSaved.replace("{field}", label));
-    } catch (err) {
-      // Revert to the last known-good value and surface a diagnosable,
-      // non-sensitive error message. We deliberately do not include the
-      // raw error in the announcement to avoid leaking internals.
-      setDraft(previousDraft);
-      setIsEditing(true);
-      onAnnounce(ie.announceSaveFailed.replace("{field}", label));
-    } finally {
-      saveInFlightRef.current = false;
-      setIsSaving(false);
-    }
-  }, [isInvalid, error, label, field, onSave, onAnnounce, trimmedDraft, rawValue]);
+    setIsEditing(false);
+    validatedOnAnnounce(ie.announceSaved.replace("{field}", validatedLabel));
+    validatedOnSave(validatedField, trimmedDraft);
+  }, [isInvalid, error, validatedLabel, validatedField, validatedOnSave, validatedOnAnnounce, trimmedDraft]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -229,39 +322,38 @@ function EditableRow({
       if (e.key === "Escape") {
         e.preventDefault();
         handleCancel();
-      } else if (e.key === "Enter" && inputType !== "date") {
+      } else if (e.key === "Enter" && validatedInputType !== "date") {
         e.preventDefault();
         handleSave();
       }
     },
-    [handleCancel, handleSave, inputType, isEditing]
+    [handleCancel, handleSave, validatedInputType]
   );
 
   const handleChange = (e) => {
     setDraft(e.target.value);
   };
 
-  const editBtnLabel = ie.editButton.replace("{field}", label);
+  const editBtnLabel = ie.editButton.replace("{field}", validatedLabel);
 
   return (
     <div>
-      <dt className="invoice-detail-dt text-slate-500">{label}</dt>
+      <dt className="invoice-detail-dt text-slate-500">{validatedLabel}</dt>
       <dd className="invoice-detail-dd text-slate-100">
         {isEditing ? (
           <div className="flex flex-col gap-2 mt-1">
             <input
               ref={inputRef}
               id={inputElId}
-              type={inputType}
+              type={validatedInputType}
               value={draft}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              aria-label={label}
+              aria-label={validatedLabel}
               aria-describedby={isInvalid ? errorElId : undefined}
               aria-invalid={isInvalid}
               pattern={inputPattern}
-              disabled={isSaving}
-              data-testid={`inline-edit-input-${field}`}
+              data-testid={`inline-edit-input-${validatedField}`}
               className={[
                 "wfull bg-slate-950 border rounded px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus-ring",
                 isInvalid
@@ -273,7 +365,8 @@ function EditableRow({
               <p
                 id={errorElId}
                 role="alert"
-                data-testid={`inline-edit-error-${field}`}
+                aria-live="polite"
+                data-testid={`inline-edit-error-${validatedField}`}
                 className="text-red-400 text-xs"
               >
                 {error}
@@ -283,33 +376,32 @@ function EditableRow({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isInvalid || isSaving}
-                aria-disabled={isInvalid || isSaving}
-                data-testid={`inline-edit-save-${field}`}
-                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:hover:bg-slate-700 disabled"
+                disabled={isInvalid}
+                aria-disabled={isInvalid}
+                data-testid={`inline-edit-save-${validatedField}`}
+                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 text-white text-xs font-medium rounded transition-colors focus-ring"
               >
                 {ie.saveButton}
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                disabled={isSaving}
-                data-testid={`inline-edit-cancel-${field}`}
-                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled"
+                data-testid={`inline-edit-cancel-${validatedField}`}
+                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded transition-colors focus-ring"
               >
                 {ie.cancelButton}
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-2 mt-1">
-            <span data-testid={`inline-edit-value-${field}`}>{displayValue}</span>
+          <span className="group/row flex items-center gap-2">
+            <span data-testid={`detail-value-${validatedField}`}>{validatedDisplayValue}</span>
             <button
               type="button"
               onClick={handleEdit}
               aria-label={editBtnLabel}
-              data-testid={`inline-edit-button-${field}`}
-              className="text-xs text-cyan-400 hover:text-cyan-300 opacity-0 focus:opacity-100 hover:opacity-100 focus:outline-none focus-ring"
+              data-testid={`inline-edit-btn-${validatedField}`}
+              className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 text-xs text-slate-400 hover:text-cyan-400 border border-slate-700 rounded px-2 py-0.5 transition-all focus-ring"
             >
               {ie.editButtonShort ?? "Edit"}
             </button>
@@ -324,36 +416,37 @@ function EditableRow({
 // InvoiceDetailClient
 // ────────────────────────────────────────────────────────────────────────────
 
-/**
- * Client boundary for the invoice metadata section.
- *
- * @param {object}   props
- * @param {string}   props.issuer
- * @param {string}   props.amount
- * @param {string}   props.yield
- * @param {string}   props.dueDate
- * @param {string}   [props.rawIssuer]
- * @param {string}   [props.rawAmount]
- * @param {string}   [props.rawYield]
- * @param {string}   [props.rawDueDate]
- * @param {string}   [props.referenceId]
- * @param {string}   [props.currency]
- * @param {(field:string, value:string) => void | Promise<void>} [props.onSave]
- */
-export default function InvoiceDetailClient({
-  issuer,
-  amount,
-  yield,
-  dueDate,
-  rawIssuer,
-  rawAmount,
-  rawYield,
-  rawDueDate,
-  referenceId,
-  currency,
-  onSave,
-}) {
-  const { density, setDensity } = useDensity();
+export default function InvoiceDetailClient(props) {
+  // Validate all props at component entry to ensure type safety and provide fallbacks
+  const validatedProps = useMemo(() => validateInvoiceDetailClientProps(props), [props]);
+
+  const {
+    labelIssuer,
+    labelAmount,
+    labelYield,
+    labelMaturity,
+    labelStatus,
+    labelReference,
+    issuer,
+    formattedAmount,
+    formattedYield,
+    dueDate,
+    referenceId,
+    statusPill,
+    summaryHeading,
+    rawIssuer,
+    rawAmount,
+    rawYield,
+    rawDueDate,
+    onSave,
+  } = validatedProps;
+  // Density state is owned here and passed to DensityToggle as controlled props
+  // so that both this component and the toggle always reflect the same value.
+  const [density, setDensity] = useDensity();
+  const spacing = SPACING[density] ?? SPACING.comfortable;
+
+  // Single polite aria-live region shared by all editable rows so announcements
+  // do not stack up in the DOM (one region, one message at a time).
   const [announcement, setAnnouncement] = useState("");
 
   // Invariant 6: unknown density values fall back to "comfortable" so a
@@ -399,25 +492,26 @@ export default function InvoiceDetailClient({
           field="issuer"
           label={copy.invest.detail.issuerLabel ?? "Issuer"}
           displayValue={issuer}
-          rawValue={raw.issuer}
-          onSave={onSave}
+          rawValue={rawIssuer}
+          onSave={handleSave}
           onAnnounce={handleAnnounce}
         />
         <EditableRow
           field="amount"
-          label={copy.invest.detail.amountLabel ?? "Amount"}
-          displayValue={amount}
-          rawValue={raw.amount}
-          inputType="number"
+          label={labelAmount}
+          displayValue={formattedAmount}
+          rawValue={rawAmount}
+          inputType="text"
+          onSave={handleSave}
           onAnnounce={handleAnnounce}
           onSave={onSave}
         />
         <EditableRow
           field="yield"
-          label={copy.invest.detail.yieldLabel ?? "Yield"}
-          displayValue={yield}
-          rawValue={raw.yield}
-          inputType="number"
+          label={labelYield}
+          displayValue={formattedYield}
+          rawValue={rawYield}
+          onSave={handleSave}
           onAnnounce={handleAnnounce}
           onSave={onSave}
         />
@@ -425,7 +519,7 @@ export default function InvoiceDetailClient({
           field="dueDate"
           label={copy.invest.detail.dueDateLabel ?? "Due date"}
           displayValue={dueDate}
-          rawValue={raw.dueDate}
+          rawValue={rawDueDate}
           inputType="date"
           onAnnounce={handleAnnounce}
           onSave={onSave}
