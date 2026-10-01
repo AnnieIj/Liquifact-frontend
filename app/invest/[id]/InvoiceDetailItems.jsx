@@ -167,8 +167,91 @@ export default function InvoiceDetailItems({
   onCopyLink,
   onPrint,
 }) {
-  // INV-1: hard guard — callers must not render this without a loaded invoice.
-  if (!invoice || typeof invoice !== "object") {
+  const [items, setItems] = useState(() =>
+    Array.isArray(initialItems) ? initialItems.slice() : []
+  );
+  const [pendingDeleteIds, setPendingDeleteIds] = useState(null);
+  const [bulkRunning, setBulkRunning] = useState({ export: false, delete: false });
+
+  const {
+    selectedIds,
+    selectedCount,
+    visibleCount,
+    allState,
+    isSelected,
+    toggle,
+    selectAll,
+    clear,
+  } = useBulkSelection(items);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (allState === ALL_STATES.ALL) {
+      clear();
+    } else {
+      selectAll();
+    }
+  }, [allState, clear, selectAll]);
+
+  const handleRequestDelete = useCallback(() => {
+    setPendingDeleteIds(new Set(selectedIds));
+  }, [selectedIds]);
+
+  const handleCancelDelete = useCallback(() => {
+    setPendingDeleteIds(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const idsToDelete = pendingDeleteIds;
+    if (bulkRunning.delete || !idsToDelete || idsToDelete.size === 0) {
+      setPendingDeleteIds(null);
+      return;
+    }
+    setBulkRunning((prev) => ({ ...prev, delete: true }));
+    try {
+      await onBulkDelete(idsToDelete);
+      setItems((current) => current.filter((item) => !idsToDelete.has(item.id)));
+      const plural = idsToDelete.size === 1 ? "" : "s";
+      toastApi?.success?.(
+        bulkLabels.deleteSuccessMsg
+          .replace("{count}", String(idsToDelete.size))
+          .replace("{plural}", plural),
+        bulkLabels.deleteSuccessTitle
+      );
+      setPendingDeleteIds(null);
+    } catch {
+      toastApi?.error?.(bulkLabels.deleteErrorMsg, bulkLabels.deleteErrorTitle);
+    } finally {
+      setBulkRunning((prev) => ({ ...prev, delete: false }));
+    }
+  }, [pendingDeleteIds, bulkRunning.delete, onBulkDelete, toastApi]);
+
+  const handleExport = useCallback(() => {
+    if (selectedIds.size === 0) {
+      toastApi?.info?.(bulkLabels.exportEmptyMsg, bulkLabels.exportSuccessTitle);
+      return;
+    }
+    setBulkRunning((prev) => ({ ...prev, export: true }));
+    try {
+      const selectedSlice = items.filter((item) => selectedIds.has(item.id));
+      const result = onBulkExport(selectedSlice) || { count: selectedSlice.length };
+      const exportCount = result.count ?? selectedSlice.length;
+      const plural = exportCount === 1 ? "" : "s";
+      toastApi?.success?.(
+        bulkLabels.exportSuccessMsg
+          .replace("{count}", String(exportCount))
+          .replace("{plural}", plural),
+        bulkLabels.exportSuccessTitle
+      );
+    } catch {
+      // Keep the selection intact so a transient download/serialization
+      // failure can be retried without reconstructing the user's selection.
+      toastApi?.error?.(bulkLabels.exportErrorMsg, bulkLabels.exportErrorTitle);
+    } finally {
+      setBulkRunning((prev) => ({ ...prev, export: false }));
+    }
+  }, [selectedIds, items, onBulkExport, toastApi]);
+
+  if (items.length === 0) {
     return null;
   }
 

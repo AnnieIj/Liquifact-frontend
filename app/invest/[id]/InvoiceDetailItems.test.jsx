@@ -95,8 +95,144 @@ describe("InvoiceDetailItems — INV-1: null / invalid invoice guard", () => {
     expect(() => renderItems({ id: "x" })).not.toThrow();
   });
 
-  it("renders section and buttons for a minimal invoice (id only)", () => {
-    renderItems({ id: "x" });
+  it("renders one selectable checkbox per detail item", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    expect(getCheckbox("inv-001-doc-invoice")).toBeInTheDocument();
+    expect(getCheckbox("inv-001-doc-pod")).toBeInTheDocument();
+    expect(getCheckbox("inv-001-doc-terms")).toBeInTheDocument();
+  });
+
+  it("row checkboxes have a descriptive aria-label", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    expect(getCheckbox("inv-001-doc-pod")).toHaveAttribute(
+      "aria-label",
+      "Select document Proof of delivery (inv-001-doc-pod)"
+    );
+  });
+
+  it("toggling a row checkbox reveals the bulk-action toolbar", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    expect(screen.getByTestId("bulk-actions-toolbar")).toBeInTheDocument();
+    expect(screen.getByTestId("bulk-selection-count")).toHaveTextContent(
+      "1 of 3 documents selected."
+    );
+  });
+
+  it("the bulk-selection-count region announces count updates politely", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    const region = screen.getByTestId("bulk-selection-count");
+    expect(region).toHaveAttribute("role", "status");
+    expect(region).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("clearing the selection via the Clear button hides the toolbar again", async () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-clear"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("bulk-actions-toolbar")).not.toBeInTheDocument()
+    );
+    expect(getCheckbox("inv-001-doc-invoice")).not.toBeChecked();
+  });
+
+  it("select-all selects every visible row when in 'partial' state", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-select-all"));
+    expect(getCheckbox("inv-001-doc-invoice")).toBeChecked();
+    expect(getCheckbox("inv-001-doc-pod")).toBeChecked();
+    expect(getCheckbox("inv-001-doc-terms")).toBeChecked();
+    expect(screen.getByTestId("bulk-selection-count")).toHaveTextContent(
+      "3 of 3 documents selected."
+    );
+    expect(screen.getByTestId("bulk-select-all").indeterminate).toBe(false);
+  });
+
+  it("select-all in 'all' state deselects every visible row", async () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-select-all"));
+    fireEvent.click(screen.getByTestId("bulk-select-all"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("bulk-actions-toolbar")).not.toBeInTheDocument()
+    );
+    expect(getCheckbox("inv-001-doc-invoice")).not.toBeChecked();
+  });
+
+  it("selected rows carry a data-selected='true' attribute", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-pod"));
+    expect(getRow("inv-001-doc-pod")).toHaveAttribute("data-selected", "true");
+    expect(getRow("inv-001-doc-invoice")).toHaveAttribute("data-selected", "false");
+  });
+
+  it("shows indeterminate state on select-all when partially selected", () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(getCheckbox("inv-001-doc-pod"));
+    expect(screen.getByTestId("bulk-select-all")).toHaveAttribute("aria-checked", "mixed");
+    expect(screen.getByTestId("bulk-select-all").indeterminate).toBe(true);
+  });
+
+  it("Export invokes the onBulkExport handler with the selected items", async () => {
+    const onBulkExport = jest.fn(() => ({ count: 2 }));
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} onBulkExport={onBulkExport} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(getCheckbox("inv-001-doc-pod"));
+    fireEvent.click(screen.getByTestId("bulk-export"));
+    await flushPromises();
+
+    expect(onBulkExport).toHaveBeenCalledTimes(1);
+    const [calledWith] = onBulkExport.mock.calls[0];
+    expect(calledWith.map((i) => i.id)).toEqual(["inv-001-doc-invoice", "inv-001-doc-pod"]);
+  });
+
+  it("Export calls toast.success on success when supplied", async () => {
+    const toast = { success: jest.fn(), error: jest.fn(), info: jest.fn() };
+    render(
+      <InvoiceDetailItems
+        initialItems={SAMPLE_ITEMS}
+        toast={toast}
+        onBulkExport={() => ({ count: 1 })}
+      />
+    );
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-export"));
+    await flushPromises();
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("Exported 1 document"),
+      expect.any(String)
+    );
+  });
+
+  it("keeps the selection and reports export failures for retry", async () => {
+    const toast = { success: jest.fn(), error: jest.fn(), info: jest.fn() };
+    render(
+      <InvoiceDetailItems
+        initialItems={SAMPLE_ITEMS}
+        toast={toast}
+        onBulkExport={() => {
+          throw new Error("download failed");
+        }}
+      />
+    );
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-export"));
+    await flushPromises();
+
+    expect(toast.error).toHaveBeenCalledWith("Could not export the selected documents. Please try again.", "Export failed");
+    expect(getCheckbox("inv-001-doc-invoice")).toBeChecked();
+    expect(screen.getByTestId("bulk-actions-toolbar")).toBeInTheDocument();
+  });
+
+  it("Delete opens a confirm dialog", async () => {
+    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
+    fireEvent.click(getCheckbox("inv-001-doc-invoice"));
+    fireEvent.click(screen.getByTestId("bulk-delete"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: copy.investDetail.fundButtonAriaLabel })
     ).toBeInTheDocument();
