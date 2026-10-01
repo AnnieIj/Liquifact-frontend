@@ -21,6 +21,7 @@
 import { useCallback, useState, useRef } from "react";
 import { exportAsCSV, exportAsJSON } from "@/utils/export";
 import { copy } from "@/app/copy/en";
+import { useToast } from "@/components/ToastProvider";
 
 const detail = copy.invest.detail;
 
