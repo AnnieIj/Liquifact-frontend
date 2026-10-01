@@ -216,10 +216,18 @@ describe("getCategoryList", () => {
     expect(tail).toEqual([...tail].sort());
   });
 
-  it("ignores malformed rows and blank or non-string categories", () => {
+  it("ignores malformed and blank categories without coercing their values", () => {
     expect(
-      getCategoryList([null, {}, { category: "privacy" }, { category: "  " }, { category: 7 }])
-    ).toEqual(["all", "privacy"]);
+      getCategoryList([
+        null,
+        { category: 3 },
+        { category: "" },
+        { category: "   " },
+        { category: "wallet" },
+        { category: "display" },
+        { category: "wallet" },
+      ])
+    ).toEqual(["all", "display", "wallet"]);
   });
 });
 
@@ -289,9 +297,9 @@ describe("MOCK_SETTINGS shape (single source of truth)", () => {
     expect(cats.size).toBeGreaterThan(1);
   });
 
-  it("freezes the canonical list and its rows against shared mutation", () => {
+  it("freezes the shared fixture rows and collection", () => {
     expect(Object.isFrozen(MOCK_SETTINGS)).toBe(true);
-    expect(MOCK_SETTINGS.every((row) => Object.isFrozen(row))).toBe(true);
+    expect(Object.isFrozen(MOCK_SETTINGS[0])).toBe(true);
   });
 });
 
@@ -304,20 +312,105 @@ describe("loadMockSettings (test hook coverage)", () => {
     }
   });
 
-  it("resolves with MOCK_SETTINGS in non-test browser environments", async () => {
-    // The default mock loader always resolves with MOCK_SETTINGS when no
-    // test fixture is injected.
+  it("resolves with an isolated copy of MOCK_SETTINGS by default", async () => {
     delete window.__TEST_MOCK_SETTINGS__;
     const result = await loadMockSettings();
-    expect(result).toBe(MOCK_SETTINGS);
+    expect(result).toEqual(MOCK_SETTINGS);
+    expect(result).not.toBe(MOCK_SETTINGS);
+    expect(result[0]).not.toBe(MOCK_SETTINGS[0]);
   });
 
-  it("honours window.__TEST_MOCK_SETTINGS__ override in the browser", () => {
+  it("validates and copies the test override in non-production", async () => {
     const override = [
       { id: "x", category: "display", label: "x", type: "toggle", value: "v", description: "d" },
     ];
     window.__TEST_MOCK_SETTINGS__ = override;
-    return expect(loadMockSettings()).resolves.toBe(override);
+    const result = await loadMockSettings();
+    expect(result).toEqual(override);
+    expect(result).not.toBe(override);
+    expect(result[0]).not.toBe(override[0]);
+  });
+
+  it("ignores test overrides in production", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    window.__TEST_MOCK_SETTINGS__ = [
+      { id: "x", category: "display", label: "x", type: "toggle", value: "v", description: "d" },
+    ];
+
+    try {
+      process.env.NODE_ENV = "production";
+      await expect(loadMockSettings()).resolves.toEqual(MOCK_SETTINGS);
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  it.each([
+    ["non-array override", { id: "x" }],
+    ["null row", [null]],
+    ["missing fields", [{ id: "x" }]],
+    ["blank identifier", [{ id: " ", category: "display", label: "x", type: "text", value: "", description: "" }]],
+    ["duplicate identifiers", [
+      { id: "x", category: "display", label: "x", type: "text", value: "1", description: "d" },
+      { id: "x", category: "display", label: "y", type: "text", value: "2", description: "d" },
+    ]],
+    ["sparse rows", new Array(1)],
+  ])("rejects %s without exposing fixture values", async (_description, override) => {
+    window.__TEST_MOCK_SETTINGS__ = override;
+    await expect(loadMockSettings()).rejects.toThrow(/\[settings\]/);
+  });
+
+  it("accepts an empty override as a valid boundary value", async () => {
+    window.__TEST_MOCK_SETTINGS__ = [];
+    await expect(loadMockSettings()).resolves.toEqual([]);
+  });
+
+  it("returns independent data for concurrent loader calls", async () => {
+    delete window.__TEST_MOCK_SETTINGS__;
+    const [first, second] = await Promise.all([
+      loadMockSettings(),
+      loadMockSettings(),
+    ]);
+
+    expect(first).not.toBe(second);
+    expect(first[0]).not.toBe(second[0]);
+    first[0].value = "changed by caller";
+    expect(second[0].value).toBe(MOCK_SETTINGS[0].value);
+    expect(MOCK_SETTINGS[0].value).toBe("enabled");
+  });
+
+  it.each([null, [], "invalid"])("rejects malformed load options: %p", async (options) => {
+    await expect(loadMockSettings(options)).rejects.toThrow(/Options must be an object/);
+  });
+
+  it("sanitizes exceptions while reading load options", async () => {
+    const options = Object.defineProperty({}, "signal", {
+      get() {
+        throw new Error("private option value");
+      },
+    });
+    await expect(loadMockSettings(options)).rejects.toThrow(
+      "[settings] Signal must be an AbortSignal."
+    );
+  });
+
+  it("rejects a malformed abort signal", async () => {
+    await expect(
+      loadMockSettings({ signal: { aborted: false } })
+    ).rejects.toThrow(/Signal must be an AbortSignal/);
+  });
+
+  it("sanitizes exceptions while reading override rows", async () => {
+    const row = Object.defineProperty({}, "id", {
+      get() {
+        throw new Error("private fixture value");
+      },
+    });
+    window.__TEST_MOCK_SETTINGS__ = [row];
+
+    await expect(loadMockSettings()).rejects.toThrow(
+      "[settings] Invalid settings override."
+    );
   });
 
   it("rejects malformed and duplicate-id test overrides", async () => {
@@ -388,6 +481,11 @@ describe("loadMockSettings (test hook coverage)", () => {
 
   it("getSettingById returns undefined for an unknown id", () => {
     expect(getSettingById("nope")).toBeUndefined();
+  });
+
+  it("getSettingById rejects invalid identifiers", () => {
+    expect(getSettingById(null)).toBeUndefined();
+    expect(getSettingById(" ")).toBeUndefined();
   });
 });
 
