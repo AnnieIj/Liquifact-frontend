@@ -136,7 +136,10 @@ export function buildSearchParams(filters, searchQuery = "") {
   }
 
   if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-    params.set("statuses", filters.statuses.filter((status) => VALID_STATUSES.has(status)).join(","));
+    params.set(
+      "statuses",
+      filters.statuses.filter((status) => VALID_STATUSES.has(status)).join(",")
+    );
   }
 
   return params;
@@ -635,7 +638,8 @@ export function InvestMarketplace({
    * keyboard users do not lose their place in the page.
    */
   const handleLoadMore = useCallback(async () => {
-    if (pageLoadInFlightRef.current || pageLoading || !hasMore || !nextCursor || cursorError) return;
+    if (pageLoadInFlightRef.current || pageLoading || !hasMore || !nextCursor || cursorError)
+      return;
 
     pageLoadInFlightRef.current = true;
     const currentInvoices = Array.isArray(invoices) ? invoices : [];
@@ -676,7 +680,16 @@ export function InvestMarketplace({
         loadMoreRef.current?.focus();
       }, 0);
     }
-  }, [pageLoading, hasMore, nextCursor, cursorError, invoices, loadInvoices, filters, debouncedSearch]);
+  }, [
+    pageLoading,
+    hasMore,
+    nextCursor,
+    cursorError,
+    invoices,
+    loadInvoices,
+    filters,
+    debouncedSearch,
+  ]);
 
   // ── Bulk actions ──────────────────────────────────────────────────────────
   const handleToggleSelectAll = useCallback(() => {
