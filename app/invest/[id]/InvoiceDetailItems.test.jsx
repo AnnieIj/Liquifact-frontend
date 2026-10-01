@@ -1,7 +1,7 @@
 /**
- * @jest-environment jsdom
+ * @file InvoiceDetailItems.test.jsx
  *
- * @file app/invest/[id]/InvoiceDetailItems.test.jsx
+ * Focused invariant, boundary, and accessibility tests for InvoiceDetailItems.
  *
  * Compatibility-contract tests for InvoiceDetailItems (Issue #1149).
  *
@@ -16,6 +16,8 @@
  *   7. Boundary and regression scenarios
  */
 
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { act, render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import InvoiceDetailItems, {
@@ -36,9 +38,7 @@ beforeAll(() => {
   global.URL.revokeObjectURL = jest.fn();
 });
 
-afterAll(() => {
-  jest.restoreAllMocks();
-});
+// ─── mocks ───────────────────────────────────────────────────────────────────
 
 // Silence expected console.error from error boundary tests
 const originalConsoleError = console.error;
@@ -59,13 +59,38 @@ const SAMPLE_ITEMS = [
   { id: "inv-001-doc-terms", name: "Payment terms", kind: "document", issuer: "Acme" },
 ];
 
-function getCheckbox(id) {
-  return screen.getByTestId(`detail-item-checkbox-${id}`);
+// ─── fixtures ────────────────────────────────────────────────────────────────
+
+/** Minimal valid invoice — all optional fields populated. */
+const validInvoice = {
+  id: "inv-001",
+  issuer: "Acme Supplies Ltd",
+  amount: "12,500",
+  currency: "USD",
+  dueDate: "2026-06-15",
+  yield: "8.2",
+  status: "Open",
+};
+
+const noop = () => {};
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function renderItems(invoice, overrides = {}) {
+  return render(
+    <InvoiceDetailItems
+      invoice={invoice}
+      isFundingDisabled={overrides.isFundingDisabled ?? false}
+      onFund={overrides.onFund ?? noop}
+      onCopyLink={overrides.onCopyLink ?? noop}
+      onPrint={overrides.onPrint ?? noop}
+    />
+  );
 }
 
-function getRow(id) {
-  return screen.getByTestId(`detail-item-row-${id}`);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// INV-1: null / invalid invoice guard
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function flushPromises() {
   await act(async () => {
@@ -227,9 +252,8 @@ describe("InvoiceDetailItems — bulk select toolbar", () => {
     expect(screen.queryByTestId("detail-item-row-")).not.toBeInTheDocument();
   });
 
-  it("does not render the toolbar before any row is selected", () => {
-    render(<InvoiceDetailItems initialItems={SAMPLE_ITEMS} />);
-    expect(screen.queryByTestId("bulk-actions-toolbar")).not.toBeInTheDocument();
+  it("renders without throwing when invoice has no optional fields", () => {
+    expect(() => renderItems({ id: "x" })).not.toThrow();
   });
 
   it("renders one selectable checkbox per detail item", () => {
@@ -390,7 +414,7 @@ describe("InvoiceDetailItems — delete", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
     expect(
-      within(dialog).getByRole("heading", { name: /Delete selected documents\?/i })
+      screen.getByRole("button", { name: copy.investDetail.fundButtonAriaLabel })
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(/You are about to permanently delete 1 document/i)

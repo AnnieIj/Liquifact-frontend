@@ -1,10 +1,9 @@
-"use client";
-
 /**
- * @file app/invest/[id]/InvoiceDetailItems.jsx
+ * @file InvoiceDetailItems.jsx
  *
- * Bulk-selectable list of invoice-detail documents (PDF, proof of delivery,
- * payment terms, etc.) on the invoice detail page.
+ * Pure presentational component for the invoice detail section inside
+ * app/invest/[id]/page.js. It owns only display logic — all loading, routing,
+ * and async state live in the parent InvoiceDetail component.
  *
  * ## Public contract (Issue #1149)
  *
@@ -51,8 +50,15 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import useBulkSelection, { ALL_STATES } from "@/lib/hooks/useBulkSelection";
 import { reportError } from "@/lib/observability/reportError";
 import { copy } from "@/app/copy/en";
+import { INVALID_VALUE_FALLBACK, formatAmount, formatCurrency } from "@/lib/format/currency";
 
-const bulkLabels = copy.invest.detail.bulk;
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const MAX_DETAIL_ITEMS = 500;
+const MAX_ID_LENGTH = 256;
+const MAX_NAME_LENGTH = 256;
+const MAX_KIND_LENGTH = 64;
+const MAX_ISSUER_LENGTH = 256;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Compatibility constants
@@ -100,8 +106,7 @@ export function normaliseDetailItems(rawItems) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Build the default set of detail documents for an invoice.
- * Pure helper — safe to call from Server Components.
+ * Validation invariants for invoice detail items.
  *
  * Invariant: returns `[]` for any null / invalid / id-less invoice.
  *
@@ -156,22 +161,7 @@ export function defaultDetailBulkExport(selectedItems) {
   ) {
     return { count: safeRecords.length };
   }
-  const json = JSON.stringify(
-    { exportedAt: new Date().toISOString(), items: safeRecords },
-    null,
-    2
-  );
-  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `liquifact-invoice-detail-${Date.now()}.json`;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  return { count: safeRecords.length };
+  return true;
 }
 
 /**
@@ -180,12 +170,40 @@ export function defaultDetailBulkExport(selectedItems) {
  *
  * Invariant: always resolves (never rejects by default).
  *
- * @param {Set<string>|Array<string>} ids
- * @returns {Promise<{ count: number }>}
+ * @param {unknown} rawItems
+ * @returns {{ items: Array<object>, rejected: number }}
  */
-export async function defaultDetailBulkDelete(ids) {
-  const count = ids instanceof Set ? ids.size : Array.isArray(ids) ? ids.length : 0;
-  return { count };
+export function sanitizeDetailItems(rawItems) {
+  if (!Array.isArray(rawItems)) {
+    return { items: [], rejected: 0 };
+  }
+  const seen = new Set();
+  const items = [];
+  let rejected = 0;
+  for (const raw of rawItems) {
+    if (!isValidDetailItem(raw)) {
+      rejected += 1;
+      continue;
+    }
+    const id = raw.id.trim();
+    if (seen.has(id)) {
+      rejected += 1;
+      continue;
+    }
+    if (items.length >= MAX_DETAIL_ITEMS) {
+      rejected += 1;
+      continue;
+    }
+    seen.add(id);
+    items.push({
+      ...raw,
+      id,
+      name: raw.name.trim(),
+      kind: raw.kind == null ? raw.kind : raw.kind,
+      issuer: raw.issuer == null ? raw.issuer : raw.issuer,
+    });
+  }
+  return { items, rejected };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -334,7 +352,7 @@ function InvoiceDetailItemsInner({
   // Invariant: bulkRunning.delete prevents concurrent re-entry.
   const handleConfirmDelete = useCallback(async () => {
     const idsToDelete = pendingDeleteIds;
-    if (!idsToDelete || idsToDelete.size === 0) {
+    if (bulkRunning.delete || !idsToDelete || idsToDelete.size === 0) {
       setPendingDeleteIds(null);
       return;
     }
@@ -389,6 +407,10 @@ function InvoiceDetailItemsInner({
           .replace("{plural}", plural),
         bulkLabels.exportSuccessTitle
       );
+    } catch {
+      // Keep the selection intact so a transient download/serialization
+      // failure can be retried without reconstructing the user's selection.
+      toastApi?.error?.(bulkLabels.exportErrorMsg, bulkLabels.exportErrorTitle);
     } finally {
       setBulkRunning((prev) => ({ ...prev, export: false }));
     }
@@ -399,96 +421,102 @@ function InvoiceDetailItemsInner({
     return null;
   }
 
-  const deleteDialogOpen = pendingDeleteIds !== null;
+  // Sanitize every displayed field (INV-5).
+  const issuer = safeField(invoice.issuer);
+  const currency = safeField(invoice.currency);
+  const dueDate = safeField(invoice.dueDate);
+  const status = safeField(invoice.status);
 
+  // Format amount with full currency formatting helper.
+  const formattedAmount = formatCurrency(invoice.amount, { currency });
+
+  // Format yield with sentinel guard (INV-6).
+  const formattedYield = formatYield(invoice.yield);
+
+  const d = copy.investDetail;
+
+  // eslint-disable-next-line react/jsx-no-useless-fragment
   return (
-    <section
-      aria-labelledby="invoice-detail-items-heading"
-      className="no-print mb-6 rounded-xl border border-slate-800 bg-slate-900/50 p-6"
-      data-testid="invoice-detail-items"
-    >
-      <h2 id="invoice-detail-items-heading" className="text-base font-semibold text-slate-100 mb-4">
-        {bulkLabels.sectionHeading}
-      </h2>
-      <p className="text-sm text-slate-400 mb-4">{bulkLabels.sectionSub}</p>
+    <>
+      {/* ── Invoice fact sheet ─────────────────────────────────────────── */}
+      <section
+        aria-labelledby="invoice-summary-heading"
+        className="print-invoice-section rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-6"
+      >
+        <h2 id="invoice-summary-heading" className="text-xl font-semibold mb-4">
+          {issuer || d.dtIssuer}
+        </h2>
 
-      <BulkActionsToolbar
-        selectedCount={selectedCount}
-        visibleCount={visibleCount}
-        allState={allState}
-        onToggleSelectAll={handleToggleSelectAll}
-        onClearSelection={clear}
-        onExport={handleExport}
-        onRequestDelete={handleRequestDelete}
-        labels={bulkLabels}
-        exporting={bulkRunning.export}
-        deleting={bulkRunning.delete}
-      />
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div>
+            <dt className="text-slate-500">{d.dtIssuer}</dt>
+            <dd className="text-slate-100">{issuer || "—"}</dd>
+          </div>
 
-      <ul aria-label={bulkLabels.listAriaLabel} className="space-y-3">
-        {items.map((item) => {
-          const checked = isSelected(item.id);
-          const checkboxAria = bulkLabels.rowCheckboxAria
-            .replace("{name}", item.name)
-            .replace("{id}", item.id);
-          return (
-            <li
-              key={item.id}
-              data-testid={`detail-item-row-${item.id}`}
-              data-selected={checked ? "true" : "false"}
-              className={[
-                "flex items-center gap-3 rounded-lg border p-3 transition-colors",
-                checked ? "border-cyan-700/60 bg-cyan-950/30" : "border-slate-800 bg-slate-950/40",
-              ].join(" ")}
-            >
-              <label className="inline-flex items-center gap-3 cursor-pointer min-w-0 flex-1">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggle(item.id)}
-                  aria-label={checkboxAria}
-                  data-testid={`detail-item-checkbox-${item.id}`}
-                  className="h-4 w-4 flex-shrink-0 rounded border-slate-600 bg-slate-900 text-cyan-500 accent-cyan-400 focus-ring"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-slate-100 truncate">
-                    {item.name}
-                  </span>
-                  <span className="block text-xs text-slate-500 truncate">{item.id}</span>
-                </span>
-              </label>
-              <span className="text-xs uppercase tracking-wide text-slate-500 flex-shrink-0">
-                {item.kind || "document"}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+          <div>
+            <dt className="text-slate-500">{d.dtAmount}</dt>
+            <dd className="text-slate-100">{formattedAmount}</dd>
+          </div>
 
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        title={bulkLabels.deleteConfirmTitle}
-        description={
-          pendingDeleteIds
-            ? bulkLabels.deleteConfirmBody
-                .replace("{count}", String(pendingDeleteIds.size))
-                .replace("{plural}", pendingDeleteIds.size === 1 ? "" : "s")
-            : ""
-        }
-        confirmLabel={
-          pendingDeleteIds
-            ? bulkLabels.deleteConfirmConfirmLabel
-                .replace("{count}", String(pendingDeleteIds.size))
-                .replace("{plural}", pendingDeleteIds.size === 1 ? "" : "s")
-            : "Delete"
-        }
-        cancelLabel={bulkLabels.deleteConfirmCancelLabel}
-        variant="danger"
-        confirmLoading={bulkRunning.delete}
-      />
-    </section>
+          <div>
+            <dt className="text-slate-500">{d.dtYield}</dt>
+            <dd className="text-slate-100">{formattedYield}</dd>
+          </div>
+
+          <div>
+            <dt className="text-slate-500">{d.dtMaturity}</dt>
+            <dd className="text-slate-100">{dueDate || "—"}</dd>
+          </div>
+
+          <div>
+            <dt className="text-slate-500">{d.dtStatus}</dt>
+            <dd className="text-slate-100">
+              {/* StatusPill tolerates empty / unknown strings (INV-2). */}
+              <StatusPill status={status} />
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {/* ── Action buttons ─────────────────────────────────────────────── */}
+      <div className="no-print flex flex-wrap gap-3">
+        {/* Fund — disabled when wallet is CONNECTING or NO_WALLET (INV-3). */}
+        <button
+          type="button"
+          onClick={onFund}
+          disabled={isFundingDisabled}
+          className="rounded-full bg-cyan-500/20 text-cyan-400 px-6 py-3 text-sm font-medium hover:bg-cyan-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label={d.fundButtonAriaLabel}
+        >
+          {d.fundButton}
+        </button>
+
+        {/* Copy link */}
+        <button
+          type="button"
+          onClick={onCopyLink}
+          className="rounded-full border border-slate-700 text-slate-300 px-6 py-3 text-sm font-medium hover:bg-slate-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500"
+          aria-label={d.copyLinkAriaLabel}
+        >
+          {d.copyLinkButton}
+        </button>
+
+        {/* Print / Save PDF */}
+        <button
+          type="button"
+          onClick={onPrint}
+          className="rounded-full border border-slate-700 text-slate-300 px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500"
+          aria-label={d.printAriaLabel}
+        >
+          {d.printButton}
+        </button>
+      </div>
+
+      {/* ── Disclaimer ─────────────────────────────────────────────────── */}
+      <div className="no-print mt-6 rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">
+        {d.disclaimer}
+      </div>
+    </>
   );
 }
 

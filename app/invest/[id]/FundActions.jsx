@@ -29,6 +29,26 @@
  * `useMarketplaceActions`: the UI reflects the pending state immediately
  * while the async action runs.  On failure the state is rolled back and
  * an error toast is shown, keeping the UI consistent.
+ *
+ * Deterministic failure recovery (issue #1132)
+ * ────────────────────────────────────────────
+ * Every failure path leaves the component in a recovery-ready state:
+ *   - FAILURE          → retry button + classified error toast. The session
+ *                        idempotency key is preserved, so a retry cannot
+ *                        double-charge even if the first request reached the
+ *                        server (server deduplicates on the key).
+ *   - BLOCKED_BY_TAB   → visible warning with role=alert; submits are no-ops
+ *                        until the other tab broadcasts FUND_UNLOCK.
+ *   - Stuck PENDING    → a visibility/focus re-check releases the in-memory
+ *                        guard if the submitting lifecycle died with the page
+ *                        (e.g. tab was refreshed mid-flight), so recovery is
+ *                        possible without a full remount.
+ * Invariants:
+ *   1. At most one submission lifecycle may be in-flight per invoice per tab.
+ *   2. The idempotency key is cleared ONLY on confirmed success, never on
+ *      failure — retries replay the same key by design.
+ *   3. Every failed attempt is reported to the observability sink with the
+ *      error code and invoice id (never amounts, addresses, or other PII).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -37,8 +57,16 @@ import { useWallet, WALLET_STATES } from "@/components/WalletContext";
 import FundAmountInput from "@/components/FundAmountInput";
 import { useMarketplace } from "@/app/invest/MarketplaceContext";
 import { copy } from "@/app/copy/en";
+import NetworkMismatchBanner from "@/components/NetworkMismatchBanner";
+import { useWalletNetworkGuard } from "@/lib/hooks/useWalletNetworkGuard";
+import {
+  useFundingSubmit,
+  FUNDING_SUBMIT_STATES,
+} from "@/lib/hooks/useFundingSubmit";
+import { reportError } from "@/lib/observability/reportError";
 
 const detail = copy.invest.detail;
+const fundingCopy = detail.funding;
 
 // Delay before an async-action result reaches the live region. Debouncing
 // coalesces bursts of rapid results (e.g. mashing "Copy link") into a single
@@ -102,17 +130,25 @@ export async function copyInvoiceUrl(id) {
  *   Defaults to a mock that resolves immediately (placeholder until Stellar lands).
  */
 export default function FundActions({ id, status, maxAmount, currency, yieldValue, performFund }) {
-  const { state: walletState, connect } = useWallet();
+  const { state: walletState, walletData, connect } = useWallet();
   const toast = useToast();
   const [isCopying, setIsCopying] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const debounceTimeoutRef = useRef(null);
-  const submissionGuardRef = useRef(false);
-  const idempotencyKeyRef = useRef(null);
-  const currentIntentKeyRef = useRef(null);
   const { pendingIds, fundInvoice } = useMarketplace();
 
   const isFundingPending = pendingIds.has(id);
+
+  // Network guard — reads the connected wallet network and compares it with
+  // the invoice environment. When there is a mismatch the banner is shown
+  // and funding actions are blocked.
+  const { status: networkStatus, walletNetwork, invoiceNetwork } = useWalletNetworkGuard();
+
+  // Funding is blocked when the wallet is on the wrong network (or we cannot
+  // confirm it is on the right one). "checking" does NOT block — we optimise
+  // for the common case where wallet and invoice are on the same network.
+  const isNetworkMismatch =
+    networkStatus === "mismatch" || networkStatus === "unknown" || networkStatus === "disconnected";
 
   // Debounced polite announcement so rapid-fire results settle into one update.
   const announce = useCallback((message) => {
@@ -125,19 +161,74 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-      submissionGuardRef.current = false;
-      idempotencyKeyRef.current = null;
-      currentIntentKeyRef.current = null;
     };
   }, []);
 
+  // ── useFundingSubmit: idempotency + double-submit + cross-tab guard ────────
+
+  /**
+   * The `performFund` prop is the low-level action (signs + submits the TX).
+   * We wrap it so it delegates through `fundInvoice` (optimistic context
+   * update) while forwarding the idempotency key.
+   */
+  const wrappedPerformFund = useCallback(
+    async (invoiceId, amount, idempotencyKey) => {
+      const action =
+        performFund ??
+        (async (_id, _amount, _key) => {
+          // No-op placeholder — replace with real Stellar sign+submit flow.
+        });
+      return fundInvoice(invoiceId, amount, (invId, amt) => action(invId, amt, idempotencyKey));
+    },
+    [performFund, fundInvoice]
+  );
+
+  const {
+    fundingState,
+    isPending: isFundingSubmitPending,
+    isBlocked,
+    submit: fundingSubmit,
+    reset: resetFundingState,
+    recoverStuckPending,
+  } = useFundingSubmit({
+    invoiceId: id,
+    walletAddress: walletData?.address ?? null,
+    performFund: wrappedPerformFund,
+  });
+
+  /**
+   * Stuck-pending recovery: if the tab regains visibility/focus while the
+   * lifecycle is still marked pending, the submitting closure may have died
+   * with the page (refresh mid-flight, mobile backgrounding). The hook owns
+   * the in-flight truth, so recovery is delegated to `recoverStuckPending` —
+   * it releases the in-memory guard ONLY when no attempt is genuinely
+   * in-flight, keeping recovery deterministic (a live request is never
+   * interrupted; a dead one never wedges the UI).
+   */
+  useEffect(() => {
+    const onVisibleOrFocus = () => {
+      if (document.visibilityState === "hidden") return;
+      recoverStuckPending();
+    };
+    document.addEventListener("visibilitychange", onVisibleOrFocus);
+    window.addEventListener("focus", onVisibleOrFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibleOrFocus);
+      window.removeEventListener("focus", onVisibleOrFocus);
+    };
+  }, [recoverStuckPending]);
+
   // Fund button is disabled while wallet is connecting or unavailable,
-  // while an optimistic action is in-flight, or if the invoice is not Open.
+  // while a network mismatch is active, while an optimistic action is
+  // in-flight, or if the invoice is not Open.
   const isFundingDisabled =
     walletState === WALLET_STATES.CONNECTING ||
     walletState === WALLET_STATES.NO_WALLET ||
+    isNetworkMismatch ||
     status !== "Open" ||
-    isFundingPending;
+    isFundingPending ||
+    isFundingSubmitPending ||
+    isBlocked;
 
   const handleFund = () => {
     if (walletState === WALLET_STATES.DISCONNECTED) {
@@ -167,14 +258,16 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
   };
 
   /**
-   * Partial-funding submit with optimistic update + rollback.
+   * Partial-funding submit with idempotency + double-submit guard + optimistic update.
    *
    * - If the wallet is disconnected, prompt connection and return early.
-   * - Otherwise apply the funding optimistically via `useMarketplaceActions`:
-   *     • UI reflects the pending state immediately.
-   *     • On success a confirmation toast is shown.
-   *     • On failure the optimistic state is rolled back and an error toast
-   *       is shown — the invoice reverts to its pre-action appearance.
+   * - Delegates to `useFundingSubmit` which manages:
+   *     • In-memory double-submit guard (blocks re-entrant calls within same lifecycle)
+   *     • Session-persisted idempotency key (survives remounts; same key on retry)
+   *     • BroadcastChannel cross-tab lock (blocks a second tab from submitting)
+   *     • AbortController lifecycle (cancels pending request on unmount)
+   * - Toast and live-region announcements are classified by error type so the
+   *   user receives actionable guidance (timeout vs wallet reject vs conflict).
    *
    * @param {number} amount - Validated funding amount from FundAmountInput
    */
@@ -185,50 +278,53 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
         return;
       }
 
-      // Generate intent key from invoice id + amount (unique per unique funding attempt)
-      const intentKey = `${id}_${amount}`;
-
-      // SUBMISSION GUARD: block repeat activation of the SAME intent while in-flight
-      if (currentIntentKeyRef.current === intentKey && submissionGuardRef.current) {
-        return;
-      }
-
-      // New intent (or first activation) — allow through
-      currentIntentKeyRef.current = intentKey;
-      submissionGuardRef.current = true;
-
-      // Generate idempotency key per unique intent; reuse on retry
-      if (!idempotencyKeyRef.current || currentIntentKeyRef.current !== intentKey) {
-        idempotencyKeyRef.current = crypto.randomUUID();
-      }
-
-      // Default performFund: simulates a successful submission until the
-      // real Stellar sign+submit flow lands.
-      const action =
-        performFund ??
-        (async (_invoiceId, _amount, _idempotencyKey) => {
-          // No-op placeholder — replace with real API call.
-        });
+      const cur = currency ?? "";
 
       try {
-        await fundInvoice(id, amount, (invId, amt) =>
-          action(invId, amt, idempotencyKeyRef.current)
-        );
-        const successMsg =
-          `Funding request for ${amount} ${currency ?? ""} submitted. Awaiting wallet approval.`.trim();
-        toast.success(successMsg, "Funding submitted");
+        await fundingSubmit(amount);
+
+        // fundingSubmit resolves on success (no throw).
+        const successMsg = fundingCopy.successMsg
+          .replace("{amount}", String(amount))
+          .replace("{currency}", cur)
+          .trim();
+        toast.success(successMsg, fundingCopy.successTitle);
         announce(successMsg);
-      } catch {
-        const errorMsg =
-          `Funding request for ${amount} ${currency ?? ""} failed. Please try again.`.trim();
-        toast.error(errorMsg, "Funding failed");
-        announce(errorMsg);
-      } finally {
-        submissionGuardRef.current = false;
+      } catch (err) {
+        // Observability: record every failed attempt with a stable code and
+        // the invoice id. Deliberately excludes amount/wallet/error message
+        // detail that could carry user data.
+        reportError(err, {
+          scope: "fundActions.submit",
+          invoiceId: id,
+          code: err?.code ?? err?.name ?? "UNKNOWN",
+        });
+
+        // Classify the error for actionable user messaging.
+        if (err?.name === "FundInvoiceTimeoutError" || err?.code === "FUND_TIMEOUT") {
+          toast.error(fundingCopy.timeoutMsg, fundingCopy.timeoutTitle);
+          announce(fundingCopy.timeoutMsg);
+        } else if (err?.status === 409 || err?.code === "FUND_CONFLICT") {
+          toast.error(fundingCopy.conflictMsg, fundingCopy.conflictTitle);
+          announce(fundingCopy.conflictMsg);
+        } else if (err?.code === "WALLET_REJECT" || err?.name === "WalletRejectedError") {
+          toast.error(fundingCopy.walletRejectMsg, fundingCopy.walletRejectTitle);
+          announce(fundingCopy.walletRejectMsg);
+        } else {
+          const failureMsg = fundingCopy.failureMsg
+            .replace("{amount}", String(amount))
+            .replace("{currency}", cur)
+            .trim();
+          toast.error(failureMsg, fundingCopy.failureTitle);
+          announce(failureMsg);
+        }
       }
     },
-    [walletState, connect, fundInvoice, id, currency, performFund, toast, announce]
+    [walletState, connect, fundingSubmit, currency, toast, announce, id]
   );
+
+  // ── Combined pending state ─────────────────────────────────────────────────
+  const showPending = isFundingPending || isFundingSubmitPending;
 
   return (
     <>
@@ -244,6 +340,15 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
         {announcement}
       </div>
 
+      {/* Network mismatch banner — blocks funding until the wallet is on the
+          correct network. Rendered before the funding controls so it is the
+          first focusable / readable content in the actions area. */}
+      <NetworkMismatchBanner
+        status={networkStatus}
+        walletNetwork={walletNetwork}
+        invoiceNetwork={invoiceNetwork}
+      />
+
       {/* Partial-funding amount input — only when an amount ceiling is known
           (real detail page) and the invoice is Open. */}
       {status === "Open" && maxAmount != null && (
@@ -255,6 +360,52 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
             onSubmit={handleFundAmount}
             disabled={isFundingDisabled}
           />
+        </div>
+      )}
+
+      {/* Retry button — shown after a failure so the user can re-submit
+          without refreshing the page. The idempotency key is preserved in
+          sessionStorage so the retry re-uses it (server deduplication). */}
+      {fundingState === FUNDING_SUBMIT_STATES.FAILURE && (
+        <div className="no-print mb-4">
+          <button
+            type="button"
+            onClick={resetFundingState}
+            className="focus-ring rounded-full bg-slate-700/40 text-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-700/60 transition-colors motion-reduce:transition-none"
+            data-testid="fund-retry-button"
+          >
+            {fundingCopy.retryButton}
+          </button>
+          <p className="mt-1 text-xs text-slate-500" data-testid="fund-retry-hint">
+            {fundingCopy.retryHint}
+          </p>
+        </div>
+      )}
+
+      {/* Blocked-by-tab warning — another tab holds the in-flight lock for
+          this invoice. role=alert so the state change is announced to screen
+          readers immediately. Submits are no-ops until FUND_UNLOCK arrives. */}
+      {isBlocked && (
+        <div
+          role="alert"
+          className="no-print mb-4 rounded-xl border border-amber-700/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300"
+          data-testid="fund-blocked-by-tab"
+        >
+          <span className="font-semibold">{fundingCopy.blockedByTabLabel}</span>{" "}
+          {fundingCopy.blockedByTabMsg}
+        </div>
+      )}
+
+      {/* Blocked-by-tab warning — shown when another tab has acquired the
+          cross-tab lock for this invoice. Uses role=alert so screen readers
+          announce it immediately without waiting for a polite live region. */}
+      {isBlocked && (
+        <div
+          role="alert"
+          data-testid="fund-blocked-by-tab"
+          className="no-print mb-4 rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-200"
+        >
+          {fundingCopy.blockedByTabMsg}
         </div>
       )}
 
@@ -270,9 +421,9 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
           disabled={isFundingDisabled}
           className="invoice-detail-action-btn focus-ring rounded-full bg-cyan-500/20 text-cyan-400 px-6 py-3 text-sm font-medium hover:bg-cyan-500/30 transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label={detail.fundButtonLabel}
-          aria-busy={isFundingPending ? "true" : "false"}
+          aria-busy={showPending ? "true" : "false"}
         >
-          {isFundingPending ? "Funding…" : detail.fundButton}
+          {showPending ? fundingCopy.pendingButton : detail.fundButton}
         </button>
 
         <button
