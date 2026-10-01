@@ -1,5 +1,7 @@
-// @ts-nocheck
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 /**
  * Not-found boundary for the invoice detail route (`/invest/[id]`).
@@ -17,6 +19,8 @@ import Link from "next/link";
  *   detail is echoed to the UI, preventing leakage through the not-found path.
  */
 export default function InvoiceNotFound() {
+  const router = useRouter();
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100" data-testid="invoice-not-found-page">
       <header className="border-b border-slate-800 px-6 py-4">
@@ -34,6 +38,13 @@ export default function InvoiceNotFound() {
           We could not find that invoice in the marketplace. It may have been removed or the link
           might be incorrect.
         </p>
+        <button
+          type="button"
+          onClick={() => router.refresh()}
+          className="mr-3 rounded-full border border-slate-700 px-6 py-3 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+        >
+          Try again
+        </button>
         <Link
           href={marketplaceHref}
           className="inline-block rounded-full bg-cyan-500/20 text-cyan-400 px-6 py-3 text-sm font-medium hover:bg-cyan-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 focus:ring-cyan-500"
