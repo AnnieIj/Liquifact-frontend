@@ -149,7 +149,10 @@ export function buildSearchParams(filters, searchQuery = "") {
   }
 
   if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-    params.set("statuses", filters.statuses.filter((status) => VALID_STATUSES.has(status)).join(","));
+    params.set(
+      "statuses",
+      filters.statuses.filter((status) => VALID_STATUSES.has(status)).join(",")
+    );
   }
 
   return params;
@@ -611,9 +614,55 @@ export function InvestMarketplace({
     let cancelled = false;
     const generation = loadGeneration;
 
-    async function run() {
-      setInvoices(null);
-      setLoadError("");
+  // Pass statusMessage through useSettingsAnnouncer with delay=0 so the
+  // live region updates immediately on each state change, while still
+  // honouring the hook's "silent on mount" contract (no spurious announcement
+  // when the page first renders).  Rapid search-input updates are already
+  // coalesced upstream by the SEARCH_DEBOUNCE_MS delay on debouncedSearch,
+  // so no additional debounce is needed at the announcement layer here.
+  const debouncedAnnouncement = useSettingsAnnouncer(statusMessage, 0);
+
+  // ── Load-more handler ──────────────────────────────────────────────────────
+  /**
+   * Appends the next PAGE_SIZE items and updates the live-region status.
+   * Focus is moved back to the "Load more" button (if it still exists) so
+   * keyboard users do not lose their place in the page.
+   */
+  const handleLoadMore = useCallback(async () => {
+    if (pageLoadInFlightRef.current || pageLoading || !hasMore || !nextCursor || cursorError)
+      return;
+
+    pageLoadInFlightRef.current = true;
+    const currentInvoices = Array.isArray(invoices) ? invoices : [];
+    setPageLoading(true);
+    setCursorError("");
+
+    try {
+      const pageResponse = await loadInvoices({
+        signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
+        cursor: nextCursor,
+        filters,
+        search: debouncedSearch,
+        sort: filters.sort || null,
+        sortDir: filters.sortDir || "desc",
+      });
+
+      const normalized = normalizeInvoicePageResult(pageResponse);
+      if (normalized.invalidCursor) {
+        setCursorError(copy.invest.invalidCursorDescription);
+        setNextCursor(null);
+        setHasMore(false);
+        setPageLoading(false);
+        return;
+      }
+
+      const merged = mergeInvoicePages(currentInvoices, normalized.items);
+      setInvoices(merged);
+      setNextCursor(normalized.nextCursor ?? null);
+      setHasMore(Boolean(normalized.hasMore) || normalized.nextCursor !== null);
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, merged.length));
+    } catch {
+      setLoadError(copy.invest.errorDescription);
       setCursorError("");
       try {
         const payload = await loadInvoices();
@@ -629,6 +678,16 @@ export function InvestMarketplace({
         reportError(error, { scope: "invest.loadInvoices" });
       }
     }
+  }, [
+    pageLoading,
+    hasMore,
+    nextCursor,
+    cursorError,
+    invoices,
+    loadInvoices,
+    filters,
+    debouncedSearch,
+  ]);
 
     run();
 

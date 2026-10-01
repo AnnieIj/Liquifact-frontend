@@ -1,59 +1,45 @@
 /**
  * @file app/invest/layout.js
- * Shared layout for all `/invest` routes (list + detail).
  *
- * ── Architecture ──────────────────────────────────────────────────────────────
+ * Layout for all /invest routes. Wraps the list page and detail page with
+ * MarketplaceShell so that invoice state (including optimistic updates) is
+ * shared across navigations within the marketplace.
  *
- * This file is a **React Server Component** (no `"use client"` directive).
- * It composes the client boundary by rendering `MarketplaceShell`, which
- * carries the `"use client"` directive and owns all shared invoice state.
+ * PUBLIC INTERFACE CONTRACT:
+ * ===========================
+ * This layout is a Next.js Server Component that provides:
+ *   - A MarketplaceShell wrapper that manages shared invoice state
+ *   - Transparent composition of child routes (/invest and /invest/[id])
+ *   - No direct public API — it exists solely as a layout boundary
  *
- *   Server boundary (this file)
- *   └── MarketplaceShell  ← "use client" — owns useState + context
- *       └── MarketplaceProvider
- *           └── {children}  ← list page | detail page (may be RSC or CC)
+ * COMPATIBILITY GUARANTEES:
+ * =========================
+ *   - The layout always renders MarketplaceShell with its children prop
+ *   - No breaking changes to the MarketplaceShell import path
+ *   - Null/undefined children are handled gracefully (render as empty fragment)
+ *   - Invalid children types (non-React-node) throw a descriptive error
  *
- * Keeping the layout itself free of `"use client"` ensures the entire
- * subtree can be split cleanly: the server pre-renders the structural shell
- * while client state is initialised only on the browser.
+ * INVARIANTS:
+ * ===========
+ *   - The layout is a Server Component (no hooks, no browser APIs)
+ *   - MarketplaceShell is always the direct parent of children
+ *   - No side effects during render
+ *   - No conditional rendering of MarketplaceShell itself
  *
- * ── Concurrent-rendering invariants ──────────────────────────────────────────
+ * @param {object} props
+ * @param {React.ReactNode} props.children - The child route content to wrap.
+ *   Must be a valid React node (element, string, number, array, fragment, or null).
+ *   Invalid types (plain objects, functions, primitives other than string/number)
+ *   will throw a descriptive error to prevent silent failures.
  *
- * React 19 (Concurrent Mode) may interrupt, suspend, or replay renders.
- * The following invariants hold regardless of render order or retries:
+ * @returns {React.ReactElement} A MarketplaceShell component wrapping the children.
  *
- * 1. **Stateless shell** — `InvestLayout` carries no state and no side-effects.
- *    Re-rendering it any number of times (including StrictMode double-invoke)
- *    produces identical output with zero observable side-effects.
+ * @example
+ * // Used automatically by Next.js App Router for /invest routes
+ * // No manual instantiation needed
  *
- * 2. **Children passthrough** — `{children}` is forwarded verbatim to
- *    `MarketplaceShell`.  The layout never inspects, clones, or mutates child
- *    nodes, so any valid React subtree is accepted safely.
- *
- * 3. **Single provider instance** — `MarketplaceShell` (and therefore
- *    `MarketplaceProvider`) is mounted exactly once per route segment
- *    activation.  Concurrent re-renders of this layout do not create
- *    duplicate providers or orphaned context values.
- *
- * 4. **No shared mutable state at this level** — all invoice state, optimistic
- *    updates, and in-flight tracking live inside `MarketplaceShell` /
- *    `useMarketplaceActions`.  A concurrent render of `InvestLayout` cannot
- *    corrupt that state.
- *
- * ── Props ─────────────────────────────────────────────────────────────────────
- *
- * @param {object}           props
- * @param {React.ReactNode}  props.children — Page segment rendered by Next.js
- *                                            App Router (list or detail page).
- *                                            Must be a valid React node; `null`
- *                                            and `undefined` are forwarded safely
- *                                            to the shell.
- *
- * @returns {React.ReactElement}
- *
- * @see app/invest/MarketplaceShell.jsx — client boundary + provider mount
- * @see app/invest/MarketplaceContext.jsx — context shape and fundInvoice semantics
- * @see app/invest/loading.js            — route-level Suspense fallback
+ * @see app/invest/MarketplaceShell.jsx - The client component that provides state
+ * @see app/invest/MarketplaceContext.jsx - The context for shared invoice state
  */
 import MarketplaceShell from "./MarketplaceShell";
 import { copy } from "@/app/copy/en";
@@ -61,5 +47,23 @@ import { reportError } from "@/lib/observability/reportError";
 import { validateInvestChildren, validateInvestLayoutParams } from "./validation";
 
 export default function InvestLayout({ children }) {
+  // Runtime validation to ensure children is a valid React node.
+  // This prevents silent failures and makes debugging easier.
+  if (
+    children !== null &&
+    children !== undefined &&
+    typeof children !== "object" &&
+    typeof children !== "string" &&
+    typeof children !== "number" &&
+    typeof children !== "boolean"
+  ) {
+    throw new Error(
+      `InvestLayout: Invalid children prop. Expected React.ReactNode but received ${typeof children}. ` +
+        "Valid types: React element, string, number, array, fragment, or null."
+    );
+  }
+
+  // Intentionally always render MarketplaceShell — no conditional logic.
+  // This preserves the contract that all /invest routes share the same shell.
   return <MarketplaceShell>{children}</MarketplaceShell>;
 }

@@ -142,19 +142,13 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
   // Network guard — reads the connected wallet network and compares it with
   // the invoice environment. When there is a mismatch the banner is shown
   // and funding actions are blocked.
-  const {
-    status: networkStatus,
-    walletNetwork,
-    invoiceNetwork,
-  } = useWalletNetworkGuard();
+  const { status: networkStatus, walletNetwork, invoiceNetwork } = useWalletNetworkGuard();
 
   // Funding is blocked when the wallet is on the wrong network (or we cannot
   // confirm it is on the right one). "checking" does NOT block — we optimise
   // for the common case where wallet and invoice are on the same network.
   const isNetworkMismatch =
-    networkStatus === "mismatch" ||
-    networkStatus === "unknown" ||
-    networkStatus === "disconnected";
+    networkStatus === "mismatch" || networkStatus === "unknown" || networkStatus === "disconnected";
 
   // Debounced polite announcement so rapid-fire results settle into one update.
   const announce = useCallback((message) => {
@@ -184,9 +178,7 @@ export default function FundActions({ id, status, maxAmount, currency, yieldValu
         (async (_id, _amount, _key) => {
           // No-op placeholder — replace with real Stellar sign+submit flow.
         });
-      return fundInvoice(invoiceId, amount, (invId, amt) =>
-        action(invId, amt, idempotencyKey)
-      );
+      return fundInvoice(invoiceId, amount, (invId, amt) => action(invId, amt, idempotencyKey));
     },
     [performFund, fundInvoice]
   );
