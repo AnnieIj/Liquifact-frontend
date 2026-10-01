@@ -325,7 +325,7 @@ export default function InvoicesPage({
     <div className={`min-h-screen bg-slate-950 text-slate-50 ${className}`.trim()} {...restProps}>
       <NavMenu />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-10 sm$px-6 lg:px-8">
         <div className="space-y-2 mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-slate-100 sm:text-4xl">
             {copy?.invoices?.title || "Invoices"}
@@ -340,8 +340,21 @@ export default function InvoicesPage({
         <div className="grid gap-10 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <UploadErrorBoundary>
-              <UploadZone onUploadSuccess={handleUploadSuccess} />
+              <UploadZone
+                generateId={generateId}
+                onUploadStart={handleUploadStart}
+                onUploadSuccess={handleUploadSuccess}
+                onUploadError={handleUploadError}
+              />
             </UploadErrorBoundary>
+            {invoiceError ? (
+              <p
+                role="alert"
+                className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              >
+                {invoiceError}
+              </p>
+            ) : null}
           </div>
           <div className="lg:col-span-2">
             <UploadErrorBoundary>
