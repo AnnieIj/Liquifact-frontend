@@ -15,7 +15,7 @@ import { axe } from "jest-axe";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React from "react";
 
-import NotFound from "./not-found";
+import NotFound, { resolveNotFoundCopy } from "./not-found";
 import { copy } from "./copy/en";
 
 // ── Concurrency / idempotency harness ─────────────────────────────────────────
@@ -229,6 +229,53 @@ describe("NotFound (app/not-found.js)", () => {
       const { container } = renderNotFound();
       const results = await axe(container);
       expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("validation boundaries", () => {
+    it("accepts canonical 404 copy values", () => {
+      const resolved = resolveNotFoundCopy({
+        heading: " Page not found ",
+        description: " The page you’re looking for doesn’t exist or has been moved. ",
+        homeLabel: "← Back to LiquiFact",
+        statusLabel: "404",
+      });
+
+      expect(resolved).toEqual({
+        heading: "Page not found",
+        description: "The page you’re looking for doesn’t exist or has been moved.",
+        homeLabel: "← Back to LiquiFact",
+        statusLabel: "404",
+      });
+    });
+
+    it("rejects blank or malformed copy and falls back to safe defaults", () => {
+      const resolved = resolveNotFoundCopy({
+        heading: "   ",
+        description: "",
+        homeLabel: "",
+        statusLabel: "500",
+      });
+
+      expect(resolved.heading).toBe(copy.notFound.heading);
+      expect(resolved.description).toBe(copy.notFound.description);
+      expect(resolved.homeLabel).toBe(copy.notFound.homeLabel);
+      expect(resolved.statusLabel).toBe("404");
+    });
+
+    it("returns the canonical not-found defaults when the source is missing or null", () => {
+      expect(resolveNotFoundCopy(null)).toEqual({
+        heading: copy.notFound.heading,
+        description: copy.notFound.description,
+        homeLabel: copy.notFound.homeLabel,
+        statusLabel: "404",
+      });
+      expect(resolveNotFoundCopy(undefined)).toEqual({
+        heading: copy.notFound.heading,
+        description: copy.notFound.description,
+        homeLabel: copy.notFound.homeLabel,
+        statusLabel: "404",
+      });
     });
   });
 

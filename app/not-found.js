@@ -1,6 +1,51 @@
 import Link from "next/link";
 import { copy } from "./copy/en";
 
+const DEFAULT_NOT_FOUND_COPY = Object.freeze({
+  heading: "Page not found",
+  description: "The page you’re looking for doesn’t exist or has been moved.",
+  homeLabel: "← Back to LiquiFact",
+  statusLabel: "404",
+});
+
+/**
+ * Normalize copy for the 404 boundary.
+ *
+ * Invariant: the route-level fallback must always render a deterministic, human-readable
+ * 404 screen even when copy data is missing, blank, or malformed. This prevents the UI
+ * from entering a silent broken state during adverse conditions such as staging config drift
+ * or partial copy hydration.
+ *
+ * @param {unknown} source
+ * @returns {{ heading: string, description: string, homeLabel: string, statusLabel: string }}
+ */
+export function resolveNotFoundCopy(source = copy?.notFound) {
+  const fallback = DEFAULT_NOT_FOUND_COPY;
+
+  if (!source || typeof source !== "object") {
+    return { ...fallback };
+  }
+
+  const normalizeText = (value, defaultValue) => {
+    if (typeof value !== "string") return defaultValue;
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 && trimmed.length <= 200 ? trimmed : defaultValue;
+  };
+
+  const statusLabel = (() => {
+    const normalized = normalizeText(source.statusLabel, fallback.statusLabel);
+    return normalized === "404" ? "404" : fallback.statusLabel;
+  })();
+
+  return {
+    heading: normalizeText(source.heading, fallback.heading),
+    description: normalizeText(source.description, fallback.description),
+    homeLabel: normalizeText(source.homeLabel, fallback.homeLabel),
+    statusLabel,
+  };
+}
+
 /**
  * App Router not-found boundary.
  *
@@ -90,10 +135,7 @@ export function validateNotFoundCopy(copyNotFound) {
 const notFoundView = validateNotFoundCopy(copy?.notFound);
 
 export default function NotFound() {
-  const statusLabel = resolveCopy("statusLabel");
-  const heading = resolveCopy("heading");
-  const description = resolveCopy("description");
-  const homeLabel = resolveCopy("homeLabel");
+  const content = resolveNotFoundCopy(copy?.notFound);
 
   return (
     <div
@@ -110,21 +152,21 @@ export default function NotFound() {
           aria-hidden="true"
           className="mb-4 text-8xl font-extrabold tracking-tight text-cyan-500/30 select-none"
         >
-          {notFoundView.statusLabel}
+          {content.statusLabel}
         </p>
 
         <h1 id="not-found-heading" className="mb-4 text-3xl font-bold tracking-tight text-slate-50">
-          {notFoundView.heading}
+          {content.heading}
         </h1>
 
-        <p className="mb-8 text-base leading-7 text-slate-400">{notFoundView.description}</p>
+        <p className="mb-8 text-base leading-7 text-slate-400">{content.description}</p>
 
         <Link
           href="/"
           className="focus-ring inline-flex items-center justify-center rounded-full bg-cyan-500/20 px-6 py-3 text-sm font-medium text-cyan-400 transition-colors duration-200 hover:bg-cyan-500/30 active:bg-cyan-500/40"
           data-testid="not-found-home-link"
         >
-          {notFoundView.homeLabel}
+          {content.homeLabel}
         </Link>
       </main>
     </div>
