@@ -9,6 +9,23 @@ import { copy } from "../copy/en";
 
 export const LOADING_RECOVERY_DELAY_MS = 15_000;
 
+/** Number of filter pill skeletons to render (mirrors the real filter panel). */
+const FILTER_PILL_COUNT = 4;
+
+/**
+ * Route-level loading skeleton for the investor marketplace.
+ *
+ * Mirrors the page structure of `/invest/page.js`:
+ *  1. Sticky nav skeleton (`NavMenuSkeleton`)
+ *  2. Page title + subtitle shimmer bars
+ *  3. Filter panel skeleton (pill-shaped shimmer chips)
+ *  4. Invoice list skeleton (`InvoiceListSkeleton`)
+ *
+ * The component accepts no props — it is always rendered with identical,
+ * deterministic output so tests can assert on its structure reliably.
+ *
+ * @returns {React.ReactElement}
+ */
 export default function InvestLoading() {
   const router = useRouter();
   const [timedOut, setTimedOut] = useState(false);
