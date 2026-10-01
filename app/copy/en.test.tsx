@@ -413,6 +413,7 @@ describe("copy dictionary — key presence", () => {
       expect(copy.globalError.heading).toBeDefined();
       expect(copy.globalError.description).toBeDefined();
       expect(copy.globalError.reloadLabel).toBeDefined();
+      expect(copy.globalError.resettingLabel).toBeDefined();
       expect(copy.globalError.homeLabel).toBeDefined();
     });
   });
@@ -586,9 +587,9 @@ describe("copy dictionary — template placeholder consistency", () => {
     expect(
       copy.invest.announceFilteredCount.replace("{matched}", "3").replace("{total}", "10")
     ).toBe("3 of 10 invoices match");
-    expect(
-      copy.invest.announceShowing.replace("{shown}", "5").replace("{total}", "20")
-    ).toBe("Showing 5 of 20 investable invoices");
+    expect(copy.invest.announceShowing.replace("{shown}", "5").replace("{total}", "20")).toBe(
+      "Showing 5 of 20 investable invoices"
+    );
   });
 
   it("uploadZone error templates use {type}, {sizeMb}, {maxSizeMb}, {status} placeholders", () => {
